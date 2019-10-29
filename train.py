@@ -36,6 +36,8 @@ def parse_args():
                         help='enables CUDA training')
     parser.add_argument('--epochs', type=int, default=10,
                         help='number of epochs to train for')
+    parser.add_argument('--img-rep-dim', type=int, default=512,
+                        help='size of the image representation')
     parser.add_argument('--lr', type=float, default=3e-4, metavar='LR',
                         help='learning rate')
     parser.add_argument('--log-interval', type=int, default=10, metavar='N',
@@ -44,6 +46,8 @@ def parse_args():
                         help='where to save models')
     parser.add_argument('--seed', type=int, default=None,
                         help='random seed to use')
+    parser.add_argument('--text-rep-dim', type=int, default=128,
+                        help='size of the text representation')
 
     # Argument post-processing
     args = parser.parse_args()
