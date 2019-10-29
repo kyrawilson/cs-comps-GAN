@@ -68,12 +68,14 @@ def plot_losses(losses, dest):
 
 def make_kwargs(args, seed, model_id):
     kwargs = {
+        'bsize': args.bsize,
+        'cuda': args.cuda,
+        'date:': time.strftime("%Y-%m-%d %H:%M"),
+        'epochs': args.epochs,
+        'img_rep_dim': args.img_rep_dim,
         'model_id': model_id,
         'seed': seed,
-        'cuda': args.cuda,
-        'epochs': args.epochs,
-        'bsize': args.bsize,
-        'date:': time.strftime("%Y-%m-%d %H:%M"),
+        'text_rep_dim': args.text_rep_dim
     }
 
 def set_seeds(seed):
