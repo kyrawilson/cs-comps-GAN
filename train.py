@@ -11,15 +11,16 @@ image.
 Some simple utility code is reused from another personal research project.
 '''
 
+import json
 import matplotlib
 import numpy as np
 import os
+import random
 import time
 import torch
 import torch.nn as nn
 import torch.optim as optim
 import tqdm
-import random
 import uuid
 
 # from models import Generator
@@ -77,6 +78,14 @@ def make_kwargs(args, seed, model_id):
         'seed': seed,
         'text_rep_dim': args.text_rep_dim
     }
+
+    with open(os.path.join(args.out_dir, model_id, 'params.json'), 
+              'w') as params_f:
+        # indent: when set to something besides None, enables pretty-printing
+        # of json file; the specific integer sets the tab size in num. spaces
+        json.dump(kwargs, params_f, indent=2)
+
+    return kwargs
 
 def set_seeds(seed):
     """ Set random seeds to ensure result reproducibility.
