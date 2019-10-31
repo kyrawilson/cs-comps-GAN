@@ -172,10 +172,10 @@ if __name__ == "__main__":
     seed = set_seeds(args.seed)
     model_id, model_dir = make_model_dir(args.out_dir)
     kwargs = make_kwargs(args, seed, model_id)
-    # train_data = ImgCaptionData(**kwargs)
-    # train_loader = data.DataLoader(train_data, 
-    #                                batch_size=args.batch_size,
-    #                                shuffle=True)
+    train_data = ImgCaptionData(**kwargs)
+    train_loader = data.DataLoader(train_data, 
+                                   batch_size=args.bsize,
+                                   shuffle=True)
     train_loader = [(0, 0)]
 
     # val_data = ???
