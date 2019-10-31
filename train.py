@@ -23,6 +23,7 @@ import torch.optim as optim
 import torchvision.transforms as transforms
 import tqdm
 import uuid
+import torch.utils.data as data
 
 from data import ImgCaptionData
 

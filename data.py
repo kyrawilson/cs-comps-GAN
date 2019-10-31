@@ -43,25 +43,28 @@ class ImgCaptionData(data.Dataset):
         output = []
         with open(classes_file) as f:
             classes = f.readlines()
-            print(classes)
+            #print(classes)
             for class_name in classes:
 
                 #This part is just to edit caption file from CUB, if we make our own it may not be needed
                 class_name = class_name.rstrip("\n")
                 class_name = class_name.lstrip(digits)
                 class_name = class_name.lstrip(" ")
-                
+                print(os.path.join(caption_files,class_name))
                 captions = os.listdir(os.path.join(caption_files,class_name))
-                print(captions)
+                #print(captions)
                 for caption in captions:
                     image_path = os.path.join(img_files, class_name, caption.replace("txt", "jpg"))
                     caption_path = os.path.join(caption_files, class_name, caption)
-                    with open(caption_path) as f2:
-                        caption_list = f2.readlines()
-                        #Might need to strip newline char here
-                        #Eventually need word embeddings to be Tensors
-                        output.append({'img': image_path, 'caption': caption_list, 'embedding': self.get_word_embedding(caption)})
-                        f2.close()
+                    #print(caption_path)
+
+                    if not(caption_path.startswith("._")):
+                        with open(caption_path) as f2:
+                            caption_list = f2.readlines()
+                            #Might need to strip newline char here
+                            #Eventually need word embeddings to be Tensors
+                            output.append({'img': image_path, 'caption': caption_list, 'embedding': self.get_word_embedding(caption)})
+                            f2.close()
         f.close()
         #print(output)
         return output
