@@ -20,8 +20,11 @@ import time
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import torchvision.transforms as transforms
 import tqdm
 import uuid
+
+from data import ImgCaptionData
 
 # from models import Generator
 
@@ -33,10 +36,18 @@ def parse_args():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('--bsize', type=int, default=10,
                         help='size of training and testing batches')
+    parser.add_argument('--caption-files', type=str, default='text_c10',
+                        help='name of folder containing image captions')
+    parser.add_argument('--classes-file', type=str, default='classes.txt',
+                        help='name of file containing list of bird classes')
     parser.add_argument('--cuda', action='store_true', default=False,
                         help='enables CUDA training')
+    parser.add_argument('--data', type=str, default='mini_TAGAN_data',
+                        help='folder of data to use')
     parser.add_argument('--epochs', type=int, default=10,
                         help='number of epochs to train for')
+    parser.add_argument('--img-files', type=str, default='images',
+                        help='name of image folder in data')
     parser.add_argument('--img-rep-dim', type=int, default=512,
                         help='size of the image representation')
     parser.add_argument('--lr', type=float, default=3e-4, metavar='LR',
@@ -70,9 +81,13 @@ def plot_losses(losses, dest):
 def make_kwargs(args, seed, model_id):
     kwargs = {
         'bsize': args.bsize,
+        'caption_files': os.path.join(args.data, args.caption_files),
+        'classes_file': os.path.join(args.data, args.classes_file),
         'cuda': args.cuda,
+        'data': args.data,
         'date:': time.strftime("%Y-%m-%d %H:%M"),
         'epochs': args.epochs,
+        'img_files': os.path.join(args.data, args.img_files),
         'img_rep_dim': args.img_rep_dim,
         'model_id': model_id,
         'seed': seed,
@@ -84,6 +99,14 @@ def make_kwargs(args, seed, model_id):
         # indent: when set to something besides None, enables pretty-printing
         # of json file; the specific integer sets the tab size in num. spaces
         json.dump(kwargs, params_f, indent=2)
+
+    # TODO make this a command line arg
+    # TODO make img size a global constant
+    kwargs['img_transform'] = transforms.Compose([transforms.Resize((136, 136)),
+                                                 transforms.RandomCrop((128, 128)),
+                                                 transforms.RandomRotation(10),
+                                                 transforms.RandomHorizontalFlip(),
+                                                 transforms.ToTensor()])
 
     return kwargs
 
@@ -147,13 +170,13 @@ if __name__ == "__main__":
     seed = set_seeds(args.seed)
     model_id, model_dir = make_model_dir(args.out_dir)
     kwargs = make_kwargs(args, seed, model_id)
-    # train_data = ???
-    # train_loader = data.DataLoader(train_data, 
-                                   # batch_size=args.batch_size,
-                                   # shuffle=True)
+    train_data = ImgCaptionData(**kwargs)
+    train_loader = data.DataLoader(train_data, 
+                                   batch_size=args.batch_size,
+                                   shuffle=True)
     train_loader = [(0, 0)]
 
-    # train_data = ???
+    # val_data = ???
     # val_loader = data.DataLoader(val_data,
                                     # batch_size=args.batch_size,
                                     # shuffle=True)
