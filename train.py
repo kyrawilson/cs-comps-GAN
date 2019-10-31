@@ -26,6 +26,7 @@ import uuid
 import torch.utils.data as data
 
 from data import ImgCaptionData
+from model import Generator
 
 # from models import Generator
 
@@ -171,10 +172,10 @@ if __name__ == "__main__":
     seed = set_seeds(args.seed)
     model_id, model_dir = make_model_dir(args.out_dir)
     kwargs = make_kwargs(args, seed, model_id)
-    train_data = ImgCaptionData(**kwargs)
-    train_loader = data.DataLoader(train_data, 
-                                   batch_size=args.batch_size,
-                                   shuffle=True)
+    # train_data = ImgCaptionData(**kwargs)
+    # train_loader = data.DataLoader(train_data, 
+    #                                batch_size=args.batch_size,
+    #                                shuffle=True)
     train_loader = [(0, 0)]
 
     # val_data = ???
@@ -184,7 +185,7 @@ if __name__ == "__main__":
     val_loader = [(0, 0)]
     # one row of losses for training, one for testing
     losses = np.zeros((args.epochs, 2))
-    # G = Generator(**kwargs)
+    G = Generator()
     # TODO maybe only get parameters in G that require gradients?
     # optim_G = optim.Adam(G.parameters(), lr=args.lr, weight_decay=1e-4)
     for epoch in range(args.epochs):
