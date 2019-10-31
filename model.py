@@ -1,9 +1,9 @@
 import torch.nn as nn
 
-    def forward(self, img, txt_feat):
+    # def forward(self, img, txt_feat):
         
         
-        return img_feat, text_feat
+    #     return img_feat, text_feat
 
 
 class ResidualBlock(nn.Module):
@@ -11,11 +11,11 @@ class ResidualBlock(nn.Module):
     def __init__(self):
         super(ResidualBlock,self).__init__()
         self.residual_block = nn.Sequential(
-        nn.Conv2D(512, 512, 3, padding=1),
-        nn.BatchNorm2D(512),
+        nn.Conv2d(512, 512, 3, padding=1),
+        nn.BatchNorm2d(512),
         nn.ReLU(),
-        nn.Conv2D(512, 512, 3, padding=1),
-        nn.BatchNorm2D(512),
+        nn.Conv2d(512, 512, 3, padding=1),
+        nn.BatchNorm2d(512),
         )
     def forward(self, x):
         return x + self.encoder(x)
@@ -33,36 +33,36 @@ class Generator(nn.Module):
         nn.ReLU(inplace=True),
         nn.Conv2d(128, 256, 4, 2, padding=1, bias=False),
         nn.BatchNorm2d(256),
-        nn.ReLU(inplace=True)
+        nn.ReLU(inplace=True),
         nn.Conv2d(256, 512, 4, 2, padding=1, bias=False),
         nn.BatchNorm2d(512),
         nn.ReLU(inplace=True)
         )
 
         self.residualBlock = nn.Sequential(
-        nn.Conv2D(640, 512, 3, padding=1, bias=False),
-        nn.BatchNorm2D(512),
-        nn.ReLU(in_place=True),
-        residual_block(),
-        residual_block()
-        residual_block(),
-        residual_block()
+        nn.Conv2d(640, 512, 3, padding=1, bias=False),
+        nn.BatchNorm2d(512),
+        nn.ReLU(inplace=True),
+        ResidualBlock(),
+        ResidualBlock(),
+        ResidualBlock(),
+        ResidualBlock(),
         )
 
         self.decoder = nn.Sequential(
         nn.Upsample(scale_factor=2),
-        nn.Conv2D(512, 256, 3, padding=1, bias=False),
-        nn.BatchNorm2D(256),
-        nn.ReLU(in_place=True),
+        nn.Conv2d(512, 256, 3, padding=1, bias=False),
+        nn.BatchNorm2d(256),
+        nn.ReLU(inplace=True),
         nn.Upsample(scale_factor=2),
-        nn.Conv2D(256, 128, 3, padding=1, bias=False),
-        nn.BatchNorm2D(128),
-        nn.ReLU(in_place=True),
+        nn.Conv2d(256, 128, 3, padding=1, bias=False),
+        nn.BatchNorm2d(128),
+        nn.ReLU(inplace=True),
         nn.Upsample(scale_factor=2),
-        nn.Conv2D(128, 64, 3, padding=1, bias=False),
-        nn.BatchNorm2D(64),
-        nn.ReLU(in_place=True),
-        nn.Conv2D(64, 3, 3, padding=1),
+        nn.Conv2d(128, 64, 3, padding=1, bias=False),
+        nn.BatchNorm2d(64),
+        nn.ReLU(inplace=True),
+        nn.Conv2d(64, 3, 3, padding=1),
         nn.Tanh()
         )
 
