@@ -50,7 +50,7 @@ class ImgCaptionData(data.Dataset):
                 class_name = class_name.rstrip("\n")
                 class_name = class_name.lstrip(digits)
                 class_name = class_name.lstrip(" ")
-                print(os.path.join(caption_files,class_name))
+                #print(os.path.join(caption_files,class_name))
                 captions = os.listdir(os.path.join(caption_files,class_name))
                 #print(captions)
                 for caption in captions:
@@ -73,8 +73,8 @@ class ImgCaptionData(data.Dataset):
     def get_word_embedding(self, caption):
         return 0
 
-    def __len__(self, data):
-        return len.data()
+    def __len__(self):
+        return len(self.data)
 
     def __getitem__(self, index):
         value = self.data[index]
