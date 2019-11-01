@@ -176,7 +176,7 @@ if __name__ == "__main__":
     train_loader = data.DataLoader(train_data, 
                                    batch_size=args.bsize,
                                    shuffle=True)
-    train_loader = [(0, 0)]
+    # train_loader = [(0, 0)]
 
     # val_data = ???
     # val_loader = data.DataLoader(val_data,
