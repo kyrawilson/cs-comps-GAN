@@ -85,4 +85,5 @@ class Generator(nn.Module):
 
 
         # decoder
-        decode_img = self.decoder(encode_img + output_from_residual_block)
+        decode_img = self.decoder(img_feat) # + output_from_residual_block)
+        return decode_img

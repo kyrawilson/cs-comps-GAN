@@ -36,7 +36,7 @@ import matplotlib.pyplot as plt
 def parse_args():
     import argparse
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('--bsize', type=int, default=10,
+    parser.add_argument('--bsize', type=int, default=64,
                         help='size of training and testing batches')
     parser.add_argument('--caption-files', type=str, default='text_c10',
                         help='name of folder containing image captions')
@@ -122,6 +122,10 @@ def make_kwargs(args, seed, model_id):
                                                  transforms.RandomRotation(10),
                                                  transforms.RandomHorizontalFlip(),
                                                  transforms.ToTensor()])
+    if args.cuda:
+        kwargs['device'] = torch.device('cuda')
+    else:
+        kwargs['device'] = torch.device('cpu')
 
     return kwargs
 
@@ -157,10 +161,12 @@ def train(G, epoch, loader, optimizer, val=False):
     for batch_idx, batch in tqdm(enumerate(train_loader)):
         if not val:
             optimizer.zero_grad()
-        img = batch[0]
-        text = batch[1]
+        img = batch[0].to(kwargs['device'])
+        text = batch[1].to(kwargs['device'])
         fake = G(img, text)
         # Measures dissimilarity between decoded image and input
+        print(img.shape)
+        print(fake.shape)
         loss = nn.MSELoss(fake, img)
         total_loss += loss
         if not val:
