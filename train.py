@@ -18,6 +18,7 @@ import os
 import random
 import time
 import torch
+torch.cuda.current_device()
 import torch.nn as nn
 import torch.optim as optim
 import torchvision.transforms as transforms
@@ -162,7 +163,8 @@ def train(G, epoch, loader, optimizer, val=False):
         if not val:
             optimizer.zero_grad()
         img = batch[0].to(kwargs['device'])
-        text = batch[1].to(kwargs['device'])
+        # text = batch[1].to(kwargs['device'])
+        text = batch[1]
         fake = G(img, text)
         # Measures dissimilarity between decoded image and input
         print(img.shape)
