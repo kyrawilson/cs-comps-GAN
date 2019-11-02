@@ -52,12 +52,18 @@ def parse_args():
                         help='name of image folder in data')
     parser.add_argument('--img-rep-dim', type=int, default=512,
                         help='size of the image representation')
-    parser.add_argument('--lr', type=float, default=3e-4, metavar='LR',
+    parser.add_argument('--lr', type=float, default=2e-3, metavar='LR',
                         help='learning rate')
     parser.add_argument('--log-interval', type=int, default=10, metavar='N',
                         help='how many batches to wait before logging training status')
+    parser.add_argument('--momentum', type=float, default=0.5,
+                        help='momentum of Adam optimizer')
     parser.add_argument('--out-dir', type=str, default='./saves/',
                         help='where to save models')
+    parser.add_argument('--schedule-gamma', type=float, default=0.5,
+                        help='factor to reduce lr by on schedule')
+    parser.add_argument('--schedule-epochs', type=int, default=100,
+                        help='number of epochs to reduce lr after')
     parser.add_argument('--seed', type=int, default=None,
                         help='random seed to use')
     parser.add_argument('--text-rep-dim', type=int, default=128,
@@ -89,10 +95,14 @@ def make_kwargs(args, seed, model_id):
         'data': args.data,
         'date:': time.strftime("%Y-%m-%d %H:%M"),
         'epochs': args.epochs,
+        'lr': args.lr,
         'img_files': os.path.join(args.data, args.img_files),
         'img_rep_dim': args.img_rep_dim,
         'model_id': model_id,
+        'momentum': args.momentum,
         'seed': seed,
+        'schedule_epochs': args.schedule_epochs,
+        'schedule_gamma': args.schedule_gamma,
         'text_rep_dim': args.text_rep_dim
     }
 
@@ -136,6 +146,7 @@ def make_model_dir(out_dir):
 def train(G, epoch, loader, optimizer, val=False):
     """ Train (or validate) models for a single epoch.
     """
+    val = optimizer == None
     train_loader.init_epoch()
     pbar = tqdm(total=len(train_loader))
     # Sets model in training mode
@@ -189,13 +200,13 @@ if __name__ == "__main__":
     # TODO maybe only get parameters in G that require gradients?
     # optim_G = optim.Adam(G.parameters(), lr=args.lr, weight_decay=1e-4)
     for epoch in range(args.epochs):
-        pass
         # train generator
-        # avg_train_loss = train(G, epoch, train_loader, optim_G)
-        # losses[0][epoch] = avg_train_loss
+        optim_G = optim.Adam(G.parameters(), lr=0.002, momentum=0.5)
+        avg_train_loss = train(G, epoch, train_loader, optim_G)
+        losses[0][epoch] = avg_train_loss
 
         # test generator
-        # avg_test_loss = train(G, epoch, train_loader, optim_G, val=True)
+        # avg_test_loss = train(G, epoch, train_loader, None)
         # losses[1][epoch] = avg_test_loss
     dest = os.path.join(model_dir, 'loss.png')
     plot_losses(losses, dest)
