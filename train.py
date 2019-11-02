@@ -21,7 +21,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import torchvision.transforms as transforms
-import tqdm
+from tqdm import tqdm
 import uuid
 import torch.utils.data as data
 
@@ -66,6 +66,8 @@ def parse_args():
                         help='number of epochs to reduce lr after')
     parser.add_argument('--seed', type=int, default=None,
                         help='random seed to use')
+    parser.add_argument('--square-momentum', type=float, default=0.999,
+                        help='momentum to use for squared gradient in Adam')
     parser.add_argument('--text-rep-dim', type=int, default=128,
                         help='size of the text representation')
 
@@ -103,6 +105,7 @@ def make_kwargs(args, seed, model_id):
         'seed': seed,
         'schedule_epochs': args.schedule_epochs,
         'schedule_gamma': args.schedule_gamma,
+        'square_momentum': args.square_momentum,
         'text_rep_dim': args.text_rep_dim
     }
 
@@ -147,16 +150,16 @@ def train(G, epoch, loader, optimizer, val=False):
     """ Train (or validate) models for a single epoch.
     """
     val = optimizer == None
-    train_loader.init_epoch()
-    pbar = tqdm(total=len(train_loader))
+    # train_loader.init_epoch()
+    # pbar = tqdm(total=len(train_loader))
     # Sets model in training mode
-    model.train()
-    for batch_idx, batch in enumerate(train_loader):
+    G.train()
+    for batch_idx, batch in tqdm(enumerate(train_loader)):
         if not val:
             optimizer.zero_grad()
         img = batch[0]
         text = batch[1]
-        fake = G(img)
+        fake = G(img, text)
         # Measures dissimilarity between decoded image and input
         loss = nn.MSELoss(fake, img)
         total_loss += loss
@@ -173,8 +176,6 @@ def train(G, epoch, loader, optimizer, val=False):
             print(type + ' Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                 epoch, batch_idx * img.shape[0], len(train_loader.dataset),
                 100. * batch_idx / len(train_loader), avg_loss))
-        pbar.update()
-    pbar.close()
     print('====> Epoch: {} Average loss: {:.4f}'.format(epoch, avg_loss))
     return avg_loss
 
@@ -201,7 +202,9 @@ if __name__ == "__main__":
     # optim_G = optim.Adam(G.parameters(), lr=args.lr, weight_decay=1e-4)
     for epoch in range(args.epochs):
         # train generator
-        optim_G = optim.Adam(G.parameters(), lr=0.002, momentum=0.5)
+        optim_G = optim.Adam(G.parameters(), 
+                             lr=0.002, 
+                             betas=[args.momentum, args.square_momentum])
         avg_train_loss = train(G, epoch, train_loader, optim_G)
         losses[0][epoch] = avg_train_loss
 

@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 
     # def forward(self, img, txt_feat):
@@ -69,12 +70,12 @@ class Generator(nn.Module):
     def forward(self, img, txt):
         # image encoder
         img_feat = self.encoder(img)
-        z_mean = self.mu(txt_feat)
-        z_log_stddev = self.log_sigma(txt_feat)
-        z = torch.randn(txt_feat.size(0), 128)
+        # z_mean = self.mu(txt_feat)
+        # z_log_stddev = self.log_sigma(txt_feat)
+        # z = torch.randn(txt_feat.size(0), 128)
         #if next(self.parameters()).is_cuda:
          #   z = z.cuda()
-        txt_feat = z_mean + z_log_stddev.exp() * Variable(z)
+        # txt_feat = z_mean + z_log_stddev.exp() * Variable(z)
 
         # text encoder
         # assume output size of text encoder is 128
