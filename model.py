@@ -23,7 +23,7 @@ class ResidualBlock(nn.Module):
 
 
 class Generator(nn.Module):
-    def __init__(self):
+    def __init__(self, **kwargs):
         super(Generator, self).__init__()
 
         self.encoder = nn.Sequential(
@@ -66,6 +66,8 @@ class Generator(nn.Module):
         nn.Conv2d(64, 3, 3, padding=1),
         nn.Tanh()
         )
+
+        self.to(kwargs['device'])
 
     def forward(self, img, txt):
         # image encoder

@@ -159,7 +159,9 @@ def train(G, epoch, loader, optimizer, val=False):
     # pbar = tqdm(total=len(train_loader))
     # Sets model in training mode
     G.train()
-    for batch_idx, batch in tqdm(enumerate(train_loader)):
+    total_loss = 0
+    pbar = tqdm(total=len(train_loader))
+    for batch_idx, batch in enumerate(train_loader):
         if not val:
             optimizer.zero_grad()
         img = batch[0].to(kwargs['device'])
@@ -167,9 +169,9 @@ def train(G, epoch, loader, optimizer, val=False):
         text = batch[1]
         fake = G(img, text)
         # Measures dissimilarity between decoded image and input
-        print(img.shape)
-        print(fake.shape)
-        loss = nn.MSELoss(fake, img)
+        # Need to instantiate the loss fn - it's an object, not a function
+        lossFn = nn.MSELoss()
+        loss = lossFn(fake, img)
         total_loss += loss
         if not val:
             loss.backward()
@@ -180,11 +182,14 @@ def train(G, epoch, loader, optimizer, val=False):
                 type = 'Val'
             else:
                 type = 'Train'
-            avg_loss = total_loss/(batch_idx*img.shape[0])
-            print(type + ' Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
+            avg_loss = total_loss/((batch_idx+1)*img.shape[0])
+            print()
+            print(type + ' epoch {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                 epoch, batch_idx * img.shape[0], len(train_loader.dataset),
                 100. * batch_idx / len(train_loader), avg_loss))
+        pbar.update()
     print('====> Epoch: {} Average loss: {:.4f}'.format(epoch, avg_loss))
+    pbar.close()
     return avg_loss
 
 if __name__ == "__main__":
@@ -205,7 +210,7 @@ if __name__ == "__main__":
     val_loader = [(0, 0)]
     # one row of losses for training, one for testing
     losses = np.zeros((args.epochs, 2))
-    G = Generator()
+    G = Generator(**kwargs)
     # TODO maybe only get parameters in G that require gradients?
     # optim_G = optim.Adam(G.parameters(), lr=args.lr, weight_decay=1e-4)
     for epoch in range(args.epochs):
@@ -214,7 +219,7 @@ if __name__ == "__main__":
                              lr=0.002, 
                              betas=[args.momentum, args.square_momentum])
         avg_train_loss = train(G, epoch, train_loader, optim_G)
-        losses[0][epoch] = avg_train_loss
+        losses[epoch][0] = avg_train_loss
 
         # test generator
         # avg_test_loss = train(G, epoch, train_loader, None)
