@@ -11,11 +11,11 @@ img_transform = transforms.Compose([transforms.Resize((136,136)),
                                          transforms.RandomRotation(10),
                                          transforms.ToTensor()])
 
-test = ImgCaptionData(**kwargs)                                       
+test = ImgCaptionData(**kwargs)
 '''
 
 import torch
-import fasttext
+import fastTest
 import os
 import random
 
@@ -24,6 +24,16 @@ import torchvision.transforms as transforms
 
 from string import digits
 from PIL import Image
+
+FT_file = "mini_TAGAN_data/cc.en.300.bin"
+img_files = "mini_TAGAN_data/images"
+caption_files = "mini_TAGAN_data/text_c10"
+classes_file = "mini_TAGAN_data/classes.txt"
+img_transform = transforms.Compose([transforms.Resize((136,136)),
+                                         transforms.RandomCrop(128),
+                                         transforms.RandomHorizontalFlip(),
+                                         transforms.RandomRotation(10),
+                                         transforms.ToTensor()])
 
 class ImgCaptionData(data.Dataset):
 
@@ -83,7 +93,6 @@ class ImgCaptionData(data.Dataset):
         description = random.choice(value['caption'])
         embedding = value['embedding']
         return image, description, embedding
-
 
 ###TODO:
 #right now classes file is all of the classes

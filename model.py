@@ -1,9 +1,10 @@
 import torch
 import torch.nn as nn
+import torch.optim as optim
 
     # def forward(self, img, txt_feat):
-        
-        
+
+
     #     return img_feat, text_feat
 
 
@@ -25,6 +26,34 @@ class ResidualBlock(nn.Module):
 class Generator(nn.Module):
     def __init__(self, **kwargs):
         super(Generator, self).__init__()
+
+        self.textEncoder = nn.Sequential(
+        #300 = dimensions of pretrained text embedding model
+        #256 = number of features in the hidden state?
+        #On the other hand, SISGAN uses 300 for both input and output? but not bidirectional
+        #Output of shape num_directions* hidden_size, and num_directions=2 bc its bidirectional, and output from
+        #supplementary is size 512?
+        nn.GRU(300, 256, bias = False, bidirectional = True),
+
+        ##TODO: temporal averaging--should potentially be added to train.py?
+        #optimizer = optim.SGD(model.parameters(), lr=0.01, momentum=0.9)
+
+
+        nn.Linear(512, 256, bias = False),
+        nn.LeakyReLU(0.2)
+        )
+
+        '''TODO: conditioning augmentation
+        self.mu = nn.Sequential(
+            nn.Linear(300, 128, bias=False),
+            nn.LeakyReLU(0.2, inplace=True)
+        )
+        self.log_sigma = nn.Sequential(
+            nn.Linear(300, 128, bias=False),
+            nn.LeakyReLU(0.2, inplace=True)
+        )
+        '''
+
 
         self.encoder = nn.Sequential(
         nn.Conv2d(3, 64, 3, padding=1),

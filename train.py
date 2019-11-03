@@ -1,4 +1,4 @@
-''' 
+'''
 File: train.py
 Author: Will Schwarzer (schwarzerw@carleton.edu)
 Date: October 25, 2019
@@ -110,7 +110,7 @@ def make_kwargs(args, seed, model_id):
         'text_rep_dim': args.text_rep_dim
     }
 
-    with open(os.path.join(args.out_dir, model_id, 'params.json'), 
+    with open(os.path.join(args.out_dir, model_id, 'params.json'),
               'w') as params_f:
         # indent: when set to something besides None, enables pretty-printing
         # of json file; the specific integer sets the tab size in num. spaces
@@ -198,7 +198,7 @@ if __name__ == "__main__":
     model_id, model_dir = make_model_dir(args.out_dir)
     kwargs = make_kwargs(args, seed, model_id)
     train_data = ImgCaptionData(**kwargs)
-    train_loader = data.DataLoader(train_data, 
+    train_loader = data.DataLoader(train_data,
                                    batch_size=args.bsize,
                                    shuffle=True)
     # train_loader = [(0, 0)]
@@ -215,8 +215,8 @@ if __name__ == "__main__":
     # optim_G = optim.Adam(G.parameters(), lr=args.lr, weight_decay=1e-4)
     for epoch in range(args.epochs):
         # train generator
-        optim_G = optim.Adam(G.parameters(), 
-                             lr=0.002, 
+        optim_G = optim.Adam(G.parameters(),
+                             lr=0.002,
                              betas=[args.momentum, args.square_momentum])
         avg_train_loss = train(G, epoch, train_loader, optim_G)
         losses[epoch][0] = avg_train_loss
