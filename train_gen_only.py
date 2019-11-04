@@ -1,9 +1,12 @@
 ''' 
 File: train.py
 Author: Will Schwarzer (schwarzerw@carleton.edu)
-Date: November 4, 2019
+Date: October 25, 2019
 Loads the Caltech Birds (CUB) dataset, instantiates a replicated version of
 TAGAN, then trains it on the dataset.
+
+For now, just instantiates the generator, and trains it to reproduce the input
+image.
 
 Some simple utility code is reused from another personal research project.
 '''
