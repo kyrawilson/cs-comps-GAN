@@ -15,7 +15,7 @@ test = ImgCaptionData(**kwargs)
 '''
 
 import torch
-import fastTest
+import fasttext
 import os
 import random
 
@@ -73,14 +73,18 @@ class ImgCaptionData(data.Dataset):
                             caption_list = f2.readlines()
                             #Might need to strip newline char here
                             #Eventually need word embeddings to be Tensors
-                            output.append({'img': image_path, 'caption': caption_list, 'embedding': self.get_word_embedding(caption)})
+                            output.append({'img': image_path, 'caption': caption_list, 'embedding': self.get_word_embedding(caption_list)})
                             f2.close()
         f.close()
         #print(output)
         return output
 
     #Need to write this function
-    def get_word_embedding(self, caption):
+    def get_word_embedding(self, caption_list):
+        #Should make tensor of embeddings for each caption? --> so should end up with a list of Tensors?
+        #Why zero-pad word vectors? (and is max_word_length needed?)
+        #What is purpose of num2chars function? --> not totally sure it is needed bc I'm using text (instead of Tensory-thing) anyways...?
+        #Make sure what function is returning is what we actually want
         return 0
 
     def __len__(self):
@@ -90,8 +94,9 @@ class ImgCaptionData(data.Dataset):
         value = self.data[index]
         image = Image.open(value['img'])
         image = self.img_transform(image)
-        description = random.choice(value['caption'])
-        embedding = value['embedding']
+        randIndex = random.randint(0,len(value['caption'])));
+        description = value['caption'][randIndex]
+        embedding = value['embedding'][randIndex]
         return image, description, embedding
 
 ###TODO:

@@ -38,13 +38,13 @@ class Generator(nn.Module):
         ##TODO: temporal averaging--should potentially be added to train.py?
         #optimizer = optim.SGD(model.parameters(), lr=0.01, momentum=0.9)
 
-
         nn.Linear(512, 256, bias = False),
         nn.LeakyReLU(0.2)
         )
 
-        '''TODO: conditioning augmentation
-        self.mu = nn.Sequential(
+        #conditioning augmentation
+        #chech params on this?
+        self.mean = nn.Sequential(
             nn.Linear(300, 128, bias=False),
             nn.LeakyReLU(0.2, inplace=True)
         )
@@ -52,8 +52,6 @@ class Generator(nn.Module):
             nn.Linear(300, 128, bias=False),
             nn.LeakyReLU(0.2, inplace=True)
         )
-        '''
-
 
         self.encoder = nn.Sequential(
         nn.Conv2d(3, 64, 3, padding=1),
@@ -98,17 +96,24 @@ class Generator(nn.Module):
 
         self.to(kwargs['device'])
 
+
+    #if this is getting params from __getitem__, then it should be img, description, embedding
+    #may not actually need raw description at this point though
     def forward(self, img, txt):
         # image encoder
         img_feat = self.encoder(img)
-        # z_mean = self.mu(txt_feat)
-        # z_log_stddev = self.log_sigma(txt_feat)
-        # z = torch.randn(txt_feat.size(0), 128)
+
+        #text encoder
+        txt_feat = self.textEncoder(txt)
+
+        #conditioning augementation of data
+        z_mean = self.mean(txt_feat)
+        z_log_stddev = self.log_sigma(txt_feat)
+        z = torch.randn(txt_feat.size(0), 128)
         #if next(self.parameters()).is_cuda:
          #   z = z.cuda()
-        # txt_feat = z_mean + z_log_stddev.exp() * Variable(z)
+        txt_feat = z_mean + z_log_stddev.exp() * Variable(z)
 
-        # text encoder
         # assume output size of text encoder is 128
 
         # residual block
