@@ -98,6 +98,7 @@ class ImgCaptionData(data.Dataset):
             temp_caption = caption.split()
             word_vecs = torch.Tensor([self.word_embedding[w.lower()] for w in temp_caption])
             output.append(word_vecs)
+        #Think about saving output since fasttext takes a while to load?    
         print(output)
         return output
 
