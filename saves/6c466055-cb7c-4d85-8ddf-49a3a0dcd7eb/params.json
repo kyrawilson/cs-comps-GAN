@@ -1,0 +1,14 @@
+{
+  "bsize": 10,
+  "caption_files": "mini_TAGAN_data/text_c10",
+  "classes_file": "mini_TAGAN_data/classes.txt",
+  "cuda": false,
+  "data": "mini_TAGAN_data",
+  "date:": "2019-10-30 20:36",
+  "epochs": 10,
+  "img_files": "mini_TAGAN_data/images",
+  "img_rep_dim": 512,
+  "model_id": "6c466055-cb7c-4d85-8ddf-49a3a0dcd7eb",
+  "seed": 4116933959,
+  "text_rep_dim": 128
+}
