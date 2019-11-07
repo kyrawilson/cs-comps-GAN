@@ -1,10 +1,5 @@
 import torch.nn as nn
-
-    def forward(self, img, txt_feat):
-        
-        
-        return img_feat, text_feat
-
+import torch
 
 class ResidualBlock(nn.Module):
 
@@ -39,7 +34,7 @@ class Generator(nn.Module):
         nn.ReLU(inplace=True)
         )
 
-        self.residualBlock = nn.Sequential(
+        self.residual_block = nn.Sequential(
         nn.Conv2D(640, 512, 3, padding=1, bias=False),
         nn.BatchNorm2D(512),
         nn.ReLU(in_place=True),
@@ -69,19 +64,24 @@ class Generator(nn.Module):
     def forward(self, img, txt):
         # image encoder
         img_feat = self.encoder(img)
+
+
+        # text encoder
+        # assume output size of text encoder is 128
         z_mean = self.mu(txt_feat)
         z_log_stddev = self.log_sigma(txt_feat)
         z = torch.randn(txt_feat.size(0), 128)
         #if next(self.parameters()).is_cuda:
-         #   z = z.cuda()
+        #   z = z.cuda()
+        # txt_feat is the output of text encoder with size 128
         txt_feat = z_mean + z_log_stddev.exp() * Variable(z)
 
-        # text encoder
-        # assume output size of text encoder is 128
-
         # residual block
-
+        text_feat = text_feat.unsqueeze(-1)
+        text_feat = text_feat.unsqueeze(-1)
+        merge = torch.cat(txt_feat, img_feat, 1)
+        merge = self.residual_block(merge)
 
 
         # decoder
-        decode_img = self.decoder(encode_img + output_from_residual_block)
+        decode_img = self.decoder(img_feat + merge)
