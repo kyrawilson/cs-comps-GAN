@@ -14,22 +14,22 @@ class ResidualBlock(nn.Module):
     The input of first residual block is concatenated image represenation and text embedding.
     The input of the remaining residual blocks is output from last residual block.
     Outputs the representation of input plus modified version of input.
-    Input dimension: image_rep_channels*width*height
-    Output dimension: image_rep_channels*width*height
+    Input dimension: img_rep_channels*width*height
+    Output dimension: img_rep_channels*width*height
     '''
 
     def __init__(self, **kwargs):
         super(ResidualBlock,self).__init__()
-        self.image_rep_channels = kwargs["image_rep_channels"]
+        self.img_rep_channels = kwargs["img_rep_channels"]
         modules = []
         num_layers = kwargs["num_resid_block_layers"]
         for i in range(num_layers-1):
-            modules.append(nn.Conv2d(self.image_rep_channels, self.image_rep_channels, 3, padding=1))
-            modules.append(nn.BatchNorm2d(self.image_rep_channels))
+            modules.append(nn.Conv2d(self.img_rep_channels, self.img_rep_channels, 3, padding=1))
+            modules.append(nn.BatchNorm2d(self.img_rep_channels))
             modules.append(nn.ReLU(inplace=True))
         
-        modules.append(nn.Conv2d(self.image_rep_channels, self.image_rep_channels, 3, padding=1))
-        modules.append(nn.BatchNorm2d(self.image_rep_channels))
+        modules.append(nn.Conv2d(self.img_rep_channels, self.img_rep_channels, 3, padding=1))
+        modules.append(nn.BatchNorm2d(self.img_rep_channels))
         self.residual_block = nn.Sequential(*modules)
         
 #         self.residual_block = nn.Sequential(
@@ -46,7 +46,7 @@ class ResidualBlock(nn.Module):
 class Generator(nn.Module):
     def __init__(self, **kwargs):
         super(Generator, self).__init__()
-        self.image_rep_channels = kwargs["image_rep_channels"]
+        self.img_rep_channels = kwargs["img_rep_channels"]
         self.text_embed_size = kwargs["text_embed_size"]
 
         self.encoder = nn.Sequential(
@@ -66,8 +66,8 @@ class Generator(nn.Module):
         # input size of residual block is image representation channels(512) + text embedding channels(128)
         # output size of image representaion channels
         self.modifier = nn.Sequential(
-        nn.Conv2D(self.image_rep_channels+self.text_embed_size, self.image_rep_channels, 3, padding=1, bias=False),
-        nn.BatchNorm2D(self.image_rep_channels),
+        nn.Conv2D(self.img_rep_channels+self.text_embed_size, self.img_rep_channels, 3, padding=1, bias=False),
+        nn.BatchNorm2D(self.img_rep_channels),
         nn.ReLU(in_place=True),
         residual_block(),
         residual_block(),
@@ -78,18 +78,18 @@ class Generator(nn.Module):
         # output of image size: 3*128*128
         self.decoder = nn.Sequential(
         nn.Upsample(scale_factor=2),
-        nn.Conv2d(self.image_rep_channels, self.image_rep_channels/2, 3, padding=1, bias=False),
-        nn.BatchNorm2d(self.image_rep_channels/2),
+        nn.Conv2d(self.img_rep_channels, self.img_rep_channels/2, 3, padding=1, bias=False),
+        nn.BatchNorm2d(self.img_rep_channels/2),
         nn.ReLU(inplace=True),
         nn.Upsample(scale_factor=2),
-        nn.Conv2d(self.image_rep_channels/2, self.image_rep_channels/4, 3, padding=1, bias=False),
-        nn.BatchNorm2d(self.image_rep_channels/4),
+        nn.Conv2d(self.img_rep_channels/2, self.img_rep_channels/4, 3, padding=1, bias=False),
+        nn.BatchNorm2d(self.img_rep_channels/4),
         nn.ReLU(inplace=True),
         nn.Upsample(scale_factor=2),
-        nn.Conv2d(self.image_rep_channels/4, self.image_rep_channels/8, 3, padding=1, bias=False),
-        nn.BatchNorm2d(self.image_rep_channels/8),
+        nn.Conv2d(self.img_rep_channels/4, self.img_rep_channels/8, 3, padding=1, bias=False),
+        nn.BatchNorm2d(self.img_rep_channels/8),
         nn.ReLU(inplace=True),
-        nn.Conv2d(self.image_rep_channels/8, 3, 3, padding=1),
+        nn.Conv2d(self.img_rep_channels/8, 3, 3, padding=1),
         nn.Tanh()
         )
         

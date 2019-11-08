@@ -35,6 +35,9 @@ matplotlib.use('agg')
 import matplotlib.pyplot as plt
 
 def parse_args():
+    ''' Uses argparse to parse command line args. Returns args, a namespace variable
+    (contains all of the variables specified below) - e.g. args.bsize.
+    Dashes get converted to underscores automatically.'''
     import argparse
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('--bsize', type=int, default=64,
@@ -51,7 +54,7 @@ def parse_args():
                         help='number of epochs to train for')
     parser.add_argument('--img-files', type=str, default='images',
                         help='name of image folder in data')
-    parser.add_argument('--img-rep-dim', type=int, default=512,
+    parser.add_argument('--img-rep-channels', type=int, default=512,
                         help='size of the image representation')
     parser.add_argument('--lr', type=float, default=2e-3, metavar='LR',
                         help='learning rate')
