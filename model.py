@@ -43,7 +43,7 @@ class Generator(nn.Module):
         )
 
         #conditioning augmentation
-        #chech params on this?
+        #check params on this?
         self.mean = nn.Sequential(
             nn.Linear(300, 128, bias=False),
             nn.LeakyReLU(0.2, inplace=True)
@@ -112,7 +112,7 @@ class Generator(nn.Module):
         z = torch.randn(txt_feat.size(0), 128)
         #if next(self.parameters()).is_cuda:
          #   z = z.cuda()
-        txt_feat = z_mean + z_log_stddev.exp() * Variable(z)
+        txt_feat = z_mean + z_log_stddev.exp() * z
 
         # assume output size of text encoder is 128
 

@@ -21,7 +21,7 @@ import os
 import random
 
 import torch.utils.data as data
-#import torchvision.transforms as transforms
+import torchvision.transforms as transforms
 
 from string import digits
 from PIL import Image
@@ -51,9 +51,10 @@ class ImgCaptionData(data.Dataset):
         self.data = self.load_dataset(img_files, caption_files, classes_file)
         #add in kwargs here
         self.img_transform = img_transform
+        self.max_word_length = 50
 
-        #if kwargs['img_transform'] == None:
-            #img_transform = transforms.ToTensor()
+        if kwargs['img_transform'] == None:
+            img_transform = transforms.ToTensor()
 
 
     #Load images and captions into list of dicts, also add word embedding
@@ -68,51 +69,57 @@ class ImgCaptionData(data.Dataset):
                 class_name = class_name.rstrip("\n")
                 class_name = class_name.lstrip(digits)
                 class_name = class_name.lstrip(" ")
-                #print(os.path.join(caption_files,class_name))
+
                 captions = os.listdir(os.path.join(caption_files,class_name))
-                #print(captions)
                 for caption in captions:
                     image_path = os.path.join(img_files, class_name, caption.replace("txt", "jpg"))
                     caption_path = os.path.join(caption_files, class_name, caption)
-                    #print(caption_path)
 
                     if not(caption_path.startswith("._")):
                         with open(caption_path) as f2:
                             caption_list = f2.readlines()
                             #Might need to strip newline char here
-                            #Eventually need word embeddings to be Tensors
-                            output.append({'img': image_path, 'caption': caption_list, 'embedding': self.get_word_embedding(caption_list)})
+                            output.append({
+                                'img': image_path,
+                                'caption': caption_list,
+                                'embedding': self.get_word_embedding(caption_list),
+                                'class_name': class_name
+                                })
                             f2.close()
         f.close()
-        #print(output)
         return output
 
-    #Need to write this function
     def get_word_embedding(self, caption_list):
-        #Should make tensor of embeddings for each caption? --> so should end up with a list of Tensors?
-        #Why zero-pad word vectors? (and is max_word_length needed?)
-        #What is purpose of num2chars function? --> not totally sure it is needed bc I'm using text (instead of Tensory-thing) anyways...?
-        #Make sure what function is returning is what we actually want
+        #Need to have the length of the description for something?
+        #do we want single tensor for entire sentence or list of tensors for each word?
         output = []
         for caption in caption_list:
             temp_caption = caption.split()
+            temp_caption[len(temp_caption)-1] = temp_caption[len(temp_caption)-1].rstrip(".")
             word_vecs = torch.Tensor([self.word_embedding[w.lower()] for w in temp_caption])
+            if len(temp_caption) < self.max_word_length:
+                    word_vecs = torch.cat((
+                    word_vecs,
+                    torch.zeros(self.max_word_length - len(words), word_vecs.size(1))
+                ))
             output.append(word_vecs)
-        #Think about saving output since fasttext takes a while to load?    
-        print(output)
+        #Think about saving output since fasttext takes a while to load?
+        #output = torch.stack(output)
         return output
 
     def __len__(self):
         return len(self.data)
 
     def __getitem__(self, index):
+        #probably don't need to return raw description
         value = self.data[index]
         image = Image.open(value['img'])
-        #image = self.img_transform(image)
+        image = self.img_transform(image)
         randIndex = random.randint(0,len(value['caption']));
         description = value['caption'][randIndex]
         embedding = value['embedding'][randIndex]
-        return image, description, embedding
+        class_name = value['class_name'][randIndex]
+        return image, description, embedding, class_name
 
 test = ImgCaptionData(img_files, caption_files, classes_file, img_transform = None)
 
