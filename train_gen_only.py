@@ -1,9 +1,12 @@
-'''
+''' 
 File: train.py
 Author: Will Schwarzer (schwarzerw@carleton.edu)
-Date: November 4, 2019
+Date: October 25, 2019
 Loads the Caltech Birds (CUB) dataset, instantiates a replicated version of
 TAGAN, then trains it on the dataset.
+
+For now, just instantiates the generator, and trains it to reproduce the input
+image.
 
 Some simple utility code is reused from another personal research project.
 '''
@@ -15,6 +18,7 @@ import os
 import random
 import time
 import torch
+# Needed for some reason to make CUDA work
 torch.cuda.current_device()
 import torch.nn as nn
 import torch.optim as optim
@@ -26,12 +30,14 @@ import torch.utils.data as data
 from data import ImgCaptionData
 from model import Generator
 
-# from models import Generator
-
+# Defines some backend for matplotlib to use or something
 matplotlib.use('agg')
 import matplotlib.pyplot as plt
 
 def parse_args():
+    ''' Uses argparse to parse command line args. Returns args, a namespace variable
+    (contains all of the variables specified below) - e.g. args.bsize.
+    Dashes get converted to underscores automatically.'''
     import argparse
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('--bsize', type=int, default=64,
@@ -48,7 +54,7 @@ def parse_args():
                         help='number of epochs to train for')
     parser.add_argument('--img-files', type=str, default='images',
                         help='name of image folder in data')
-    parser.add_argument('--img-rep-dim', type=int, default=512,
+    parser.add_argument('--img-rep-channels', type=int, default=512,
                         help='size of the image representation')
     parser.add_argument('--lr', type=float, default=2e-3, metavar='LR',
                         help='learning rate')
@@ -71,22 +77,47 @@ def parse_args():
 
     # Argument post-processing
     args = parser.parse_args()
+    # Only use CUDA if torch won't get angry
     args.cuda = args.cuda and torch.cuda.is_available()
 
     return args
 
-def plot_losses(losses, dest):
-    '''
-    Plot losses over time.
-    '''
-    plt.figure()
-    plt.plot(range(len(losses)), losses[:, 0], '-', label='train')
-    plt.plot(range(len(losses)), losses[:, 1], '-', label='val')
-    plt.tight_layout()
-    plt.legend()
-    plt.savefig(dest)
+def set_seeds(seed):
+    """ Set random seeds to ensure result reproducibility.
+    """
+    # If a seed was not given by command line arg, make one randomly
+    if seed is None:
+        seed = random.randrange(2**32)
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    # May be unnecessary, but is left here just to be safe
+    torch.cuda.manual_seed_all(seed)
+    return seed
+
+def make_model_dir(out_dir):
+    ''' Make a directory for results and parameters of the current model, 
+    using a randomly generated identifier'''
+    # Model IDs
+    ### Models are stored in ./saves/models, in folders with their id as the name
+    # Generates a random id - uuid stands for Universally Unique IDentifier
+    # uuid4 specifies that it's version 4
+    model_id = str(uuid.uuid4())
+    # If the model directory doesn't exist (hopefully it doesn't!) make it
+    if not os.path.isdir(os.path.join(out_dir, model_id)):
+        os.makedirs(os.path.join(out_dir, model_id))
+    else:
+        raise RuntimeException("Generated identical model IDs?")
+    # Return both the model ID and the path to the model dir in order to
+    # output the ID in the params.json file
+    return model_id, os.path.join(out_dir, model_id)
 
 def make_kwargs(args, seed, model_id):
+    ''' Makes kwargs dictionary, both for passing to nn modules and
+    for outputting as .json (for replicability). Mostly just command-line
+    args.'''
+
+    # For descriptions of each variable, look at the argparse help string
     kwargs = {
         'bsize': args.bsize,
         'caption_files': os.path.join(args.data, args.caption_files),
@@ -97,7 +128,7 @@ def make_kwargs(args, seed, model_id):
         'epochs': args.epochs,
         'lr': args.lr,
         'img_files': os.path.join(args.data, args.img_files),
-        'img_rep_dim': args.img_rep_dim,
+        'img_rep_channels': args.img_rep_channels,
         'model_id': model_id,
         'momentum': args.momentum,
         'seed': seed,
@@ -107,12 +138,17 @@ def make_kwargs(args, seed, model_id):
         'text_rep_dim': args.text_rep_dim
     }
 
-    with open(os.path.join(args.out_dir, model_id, 'params.json'),
+    # Dump kwargs to model folder
+    with open(os.path.join(args.out_dir, model_id, 'params.json'), 
               'w') as params_f:
         # indent: when set to something besides None, enables pretty-printing
         # of json file; the specific integer sets the tab size in num. spaces
         json.dump(kwargs, params_f, indent=2)
 
+    # These transforms are modifications we make to the images when
+    # we train on them: making these modifications helps the network
+    # to learn to ignore insignificant changes to the images (to avoid
+    # overfitting)
     # TODO make this a command line arg
     # TODO make img size a global constant
     kwargs['img_transform'] = transforms.Compose([transforms.Resize((136, 136)),
@@ -127,29 +163,11 @@ def make_kwargs(args, seed, model_id):
 
     return kwargs
 
-def set_seeds(seed):
-    """ Set random seeds to ensure result reproducibility.
-    """
-    if seed is None:
-        seed = random.randrange(2**32)
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    # May be unnecessary, but is left here just to be safe
-    torch.cuda.manual_seed_all(seed)
-    return seed
-
-def make_model_dir(out_dir):
-    # Model IDs
-    ### Models are stored in ./saves/models, in folders with their id as the name
-    # Generates a random id
-    model_id = str(uuid.uuid4())
-    if not os.path.isdir(os.path.join(out_dir, model_id)):
-        os.makedirs(os.path.join(out_dir, model_id))
-    return model_id, os.path.join(out_dir, model_id)
-
 def train(G, epoch, loader, optimizer, val=False):
     """ Train (or validate) models for a single epoch.
+    G: generator object
+    epoch: epoch number
+    loader: the training or validation data loader
     """
     val = optimizer == None
     # train_loader.init_epoch()
@@ -189,32 +207,56 @@ def train(G, epoch, loader, optimizer, val=False):
     pbar.close()
     return avg_loss
 
+def plot_losses(losses, dest):
+    '''
+    Plot losses over time.
+    '''
+    plt.figure()
+    plt.plot(range(len(losses)), losses[:, 0], '-', label='train')
+    plt.plot(range(len(losses)), losses[:, 1], '-', label='val')
+    plt.tight_layout()
+    plt.legend()
+    plt.savefig(dest)
+
 if __name__ == "__main__":
     args = parse_args()
     seed = set_seeds(args.seed)
     model_id, model_dir = make_model_dir(args.out_dir)
     kwargs = make_kwargs(args, seed, model_id)
+    # ImgCaptionData returns a torch.data.Dataset object, containing images,
+    # captions and class labels (i.e. type of bird)
+    # ImgCaptionData uses kwargs for the data directory as well as for
+    # determining which transformations to apply to the images (rotation, etc.)
     train_data = ImgCaptionData(**kwargs)
-    train_loader = data.DataLoader(train_data,
+    # The dataloader takes the data in our Dataset object, shuffles it,
+    # and then turns it into a batch iterator
+    train_loader = data.DataLoader(train_data, 
                                    batch_size=args.bsize,
                                    shuffle=True)
-    # train_loader = [(0, 0)]
 
+    # TODO what is our validation split?
     # val_data = ???
     # val_loader = data.DataLoader(val_data,
                                     # batch_size=args.batch_size,
                                     # shuffle=True)
     val_loader = [(0, 0)]
-    # one row of losses for training, one for testing
+    # Store the training (first column) and val (first column) losses
+    # for each epoch, in order to graph them later
     losses = np.zeros((args.epochs, 2))
+    # Make a generator object, using kwargs to pass in hyperparameters 
     G = Generator(**kwargs)
     # TODO maybe only get parameters in G that require gradients?
-    # optim_G = optim.Adam(G.parameters(), lr=args.lr, weight_decay=1e-4)
+    # Instantiate an "Adam" type optimizer over G's parameters (i.e. weights)
+    # To determine how quickly to learn at any given time, Adam sums together
+    # a moving average of the gradients of previous epochs and the squared gradients
+    # The gradients of previous epochs decay exponentially by a factor of
+    # args.momentum (for non-squared gradients) and args.square_momentum (for
+    # squared gradients)
+    optim_G = optim.Adam(G.parameters(), 
+                         lr=0.002, 
+                         betas=[args.momentum, args.square_momentum])
     for epoch in range(args.epochs):
         # train generator
-        optim_G = optim.Adam(G.parameters(),
-                             lr=0.002,
-                             betas=[args.momentum, args.square_momentum])
         avg_train_loss = train(G, epoch, train_loader, optim_G)
         losses[epoch][0] = avg_train_loss
 
@@ -222,4 +264,5 @@ if __name__ == "__main__":
         # avg_test_loss = train(G, epoch, train_loader, None)
         # losses[1][epoch] = avg_test_loss
     dest = os.path.join(model_dir, 'loss.png')
+    # Outputs a plot of the losses to dest
     plot_losses(losses, dest)
