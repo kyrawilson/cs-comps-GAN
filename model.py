@@ -48,7 +48,14 @@ class Generator(nn.Module):
         super(Generator, self).__init__()
         self.img_rep_channels = kwargs["img_rep_channels"]
         self.text_embed_size = kwargs["text_embed_size"]
-
+        
+        # Applies 2D Convolution over an input signal
+        # 4 different layers with different input and output sizes in each
+        # Input size: 3 output size: 64, conv2d(3,1)
+        # Input size: 64 output size: 128, conv2d(4,2)
+        # Input size: 128 output size: 256, conv2d(4,2)
+        # Input size: 256 output size: 512, conv2d(4,2)
+        # With Batch normalization after each layer.
         self.encoder = nn.Sequential(
         nn.Conv2d(3, 64, 3, padding=1),
         nn.ReLU(inplace=True),
