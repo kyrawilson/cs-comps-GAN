@@ -90,7 +90,7 @@ class ImgCaptionData(data.Dataset):
         return output
 
     def get_word_embedding(self, caption_list):
-        #Need to have the length of the description for something?
+        #Need to have the length of the description for something?->add later when necessary
         #do we want single tensor for entire sentence or list of tensors for each word?
         output = []
         for caption in caption_list:
@@ -104,7 +104,7 @@ class ImgCaptionData(data.Dataset):
                 ))
             output.append(word_vecs)
         #Think about saving output since fasttext takes a while to load?
-        #output = torch.stack(output)
+        output = torch.stack(output)
         return output
 
     def __len__(self):
@@ -117,7 +117,7 @@ class ImgCaptionData(data.Dataset):
         image = self.img_transform(image)
         randIndex = random.randint(0,len(value['caption']));
         description = value['caption'][randIndex]
-        embedding = value['embedding'][randIndex]
+        embedding = value['embedding'][randIndex, ...]
         class_name = value['class_name'][randIndex]
         return image, description, embedding, class_name
 
