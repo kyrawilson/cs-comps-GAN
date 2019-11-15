@@ -59,10 +59,7 @@ class Generator(nn.Module):
         #Output of shape num_directions* hidden_size, and num_directions=2 bc its bidirectional, and output from
         #supplementary is size 512?
         nn.GRU(300, 256, bias = False, bidirectional = True),
-
-        ##TODO: temporal averaging--should potentially be added to train.py?
-        #optimizer = optim.SGD(model.parameters(), lr=0.01, momentum=0.9)
-
+        torch.mean("input tensor", 1),
         nn.Linear(512, 256, bias = False),
         nn.LeakyReLU(0.2)
         )
