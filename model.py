@@ -50,34 +50,27 @@ class Generator(nn.Module):
         self.img_rep_channels = kwargs["img_rep_channels"]
         self.text_embed_size = kwargs["text_embed_size"]
 
-        #input: # of words in description * 300
-        #output: # of words in description * 512
+        #TEXT ENCODER
+        #input: # of words in description x 300 (number of features in Fasttext embedding)
+        #output: caption representation of size 256
+
         self.textEncoder = nn.Sequential(
-        #300 = dimensions of pretrained text embedding model
-        #256 = number of features in the hidden state?
-        #On the other hand, SISGAN uses 300 for both input and output? but not bidirectional
-        #Output of shape num_directions* hidden_size, and num_directions=2 bc its bidirectional, and output from
-        #supplementary is size 512?
         nn.GRU(300, 256, bias = False, bidirectional = True),
-        torch.mean("input tensor", 1),
+        nn.AvgPool1D(512, 1),
         nn.Linear(512, 256, bias = False),
         nn.LeakyReLU(0.2)
         )
 
-        #conditioning augmentation
-        #check params on this?
-
+        #CONDITIONING AUGMENTATION
         #input: text representation of len 256
         #output: text representation of len 128
         self.mean = nn.Sequential(
-            nn.Linear(300, 128, bias=False),
+            nn.Linear(256, 128, bias=False),
             nn.LeakyReLU(0.2, inplace=True)
         )
 
-        #input: text representation of len 256
-        #output: text representation of len 128
         self.log_sigma = nn.Sequential(
-            nn.Linear(300, 128, bias=False),
+            nn.Linear(256, 128, bias=False),
             nn.LeakyReLU(0.2, inplace=True)
         )
 
