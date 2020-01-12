@@ -47,7 +47,7 @@ class Generator(nn.Module):
     def __init__(self, **kwargs):
         super(Generator, self).__init__()
         self.img_rep_channels = kwargs["img_rep_channels"]
-        self.text_embed_size = kwargs["text_embed_size"]
+        self.text_embed_size = kwargs["text_rep_dim"]
         
         # Applies 2D Convolution over an input signal
         # 4 different layers with different input and output sizes in each
@@ -72,31 +72,31 @@ class Generator(nn.Module):
 
         # input size of residual block is image representation channels(512) + text embedding channels(128)
         # output size of image representaion channels
-        self.modifier = nn.Sequential(
-        nn.Conv2D(self.img_rep_channels+self.text_embed_size, self.img_rep_channels, 3, padding=1, bias=False),
-        nn.BatchNorm2D(self.img_rep_channels),
-        nn.ReLU(in_place=True),
-        residual_block(),
-        residual_block(),
-        residual_block(),
-        residual_block())
+        # self.modifier = nn.Sequential(
+        # nn.Conv2d(self.img_rep_channels+self.text_embed_size, self.img_rep_channels, 3, padding=1, bias=False),
+        # nn.BatchNorm2d(self.img_rep_channels),
+        # nn.ReLU(inplace=True),
+        # residual_block(),
+        # residual_block(),
+        # residual_block(),
+        # residual_block())
         
         # input of output of modifier(residual blocks as a whole): 512*16*16
         # output of image size: 3*128*128
         self.decoder = nn.Sequential(
         nn.Upsample(scale_factor=2),
-        nn.Conv2d(self.img_rep_channels, self.img_rep_channels/2, 3, padding=1, bias=False),
-        nn.BatchNorm2d(self.img_rep_channels/2),
+        nn.Conv2d(self.img_rep_channels, self.img_rep_channels//2, 3, padding=1, bias=False),
+        nn.BatchNorm2d(self.img_rep_channels//2),
         nn.ReLU(inplace=True),
         nn.Upsample(scale_factor=2),
-        nn.Conv2d(self.img_rep_channels/2, self.img_rep_channels/4, 3, padding=1, bias=False),
-        nn.BatchNorm2d(self.img_rep_channels/4),
+        nn.Conv2d(self.img_rep_channels//2, self.img_rep_channels//4, 3, padding=1, bias=False),
+        nn.BatchNorm2d(self.img_rep_channels//4),
         nn.ReLU(inplace=True),
         nn.Upsample(scale_factor=2),
-        nn.Conv2d(self.img_rep_channels/4, self.img_rep_channels/8, 3, padding=1, bias=False),
-        nn.BatchNorm2d(self.img_rep_channels/8),
+        nn.Conv2d(self.img_rep_channels//4, self.img_rep_channels//8, 3, padding=1, bias=False),
+        nn.BatchNorm2d(self.img_rep_channels//8),
         nn.ReLU(inplace=True),
-        nn.Conv2d(self.img_rep_channels/8, 3, 3, padding=1),
+        nn.Conv2d(self.img_rep_channels//8, 3, 3, padding=1),
         nn.Tanh()
         )
         
@@ -111,15 +111,14 @@ class Generator(nn.Module):
 
         # residual block
         # concatenate text embedding with image represenation
-        text_feat = text_feat.unsqueeze(-1)
-        text_feat = text_feat.unsqueeze(-1)
-        merge = torch.cat(txt_feat, img_feat, 1)
+        # text_feat = text_feat.unsqueeze(-1)
+        # text_feat = text_feat.unsqueeze(-1)
+        # merge = torch.cat(txt_feat, img_feat, 1)
         
-        merge = self.modifier(merge)
+        # merge = self.modifier(merge)
 
 
         # decoder
         # change img_feat to merge when testing with residual blocks
         decode_img = self.decoder(img_feat) # + output_from_residual_block)
         return decode_img
-

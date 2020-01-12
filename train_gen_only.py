@@ -19,7 +19,7 @@ import random
 import time
 import torch
 # Needed for some reason to make CUDA work
-torch.cuda.current_device()
+# torch.cuda.current_device()
 import torch.nn as nn
 import torch.optim as optim
 import torchvision.transforms as transforms
@@ -44,9 +44,11 @@ def parse_args():
                         help='size of training and testing batches')
     parser.add_argument('--caption-files', type=str, default='text_c10',
                         help='name of folder containing image captions')
+    parser.add_argument('--colab', type=bool, default=False,
+                        help='whether or not you\'re running in colab')
     parser.add_argument('--classes-file', type=str, default='classes.txt',
                         help='name of file containing list of bird classes')
-    parser.add_argument('--cuda', action='store_true', default=False,
+    parser.add_argument('--cuda', action='store_true', default=True,
                         help='enables CUDA training')
     parser.add_argument('--data', type=str, default='mini_TAGAN_data',
                         help='folder of data to use')
@@ -76,10 +78,14 @@ def parse_args():
                         help='size of the text representation')
 
     # Argument post-processing
-    args = parser.parse_args()
+    args = parser.parse_args(args=[])
     # Only use CUDA if torch won't get angry
     args.cuda = args.cuda and torch.cuda.is_available()
 
+    if args.colab:
+        # args.data = os.path.join('/content/drive/My Drive', args.data)
+        args.data = os.path.join('/mini_TAGAN_data', args.data)
+        # print(os.listdir('/content/drive/My Drive'))
     return args
 
 def set_seeds(seed):
@@ -200,7 +206,7 @@ def train(G, epoch, loader, optimizer, val=False):
             avg_loss = total_loss/((batch_idx+1)*img.shape[0])
             print()
             print(type + ' epoch {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
-                epoch, batch_idx * img.shape[0], len(train_loader.dataset),
+                epoch+1, batch_idx * img.shape[0], len(train_loader.dataset),
                 100. * batch_idx / len(train_loader), avg_loss))
         pbar.update()
     print('====> Epoch: {} Average loss: {:.4f}'.format(epoch, avg_loss))
@@ -219,6 +225,9 @@ def plot_losses(losses, dest):
     plt.savefig(dest)
 
 if __name__ == "__main__":
+    print()
+    print('Running with device:', torch.cuda.get_device_name())
+    print('*******IMPORTANT*******: if running on Colab, remember to download saves at end of session')
     args = parse_args()
     seed = set_seeds(args.seed)
     model_id, model_dir = make_model_dir(args.out_dir)
