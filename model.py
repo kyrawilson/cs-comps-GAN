@@ -122,4 +122,23 @@ class Generator(nn.Module):
         # change img_feat to merge when testing with residual blocks
         decode_img = self.decoder(img_feat) # + output_from_residual_block)
         return decode_img
+    
+class Discriminator(nn.Module):
+    def __init__(self, **kwargs):
+        super(Discriminator, self).__init__()
+        
+        class ImageEncoder(nn.Module):
+            def __init__(self, **kwargs):
+                super(ImageEncoder, self).__init__()
+            
+            self.conv123 = nn.Sequential()
+            self.conv4 = nn.Sequential()
+            self.conv5 = nn.Sequential()
+            
+              
+            def forward(self, gap_layer, img):
+            '''
+            gap_layer:
+            img:
+            '''  
 
