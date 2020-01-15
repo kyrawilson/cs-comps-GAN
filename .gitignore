@@ -1,5 +1,8 @@
 ####################### NEW ##################################
 
+#Big word vectors file
+*.bin
+
 # Model saves
 saves/
 

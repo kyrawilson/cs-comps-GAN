@@ -1,10 +1,11 @@
 import torch
 import torch.nn as nn
+import torch.optim as optim
 
 
     # def forward(self, img, txt_feat):
-        
-        
+
+
     #     return img_feat, text_feat
 
 
@@ -27,11 +28,11 @@ class ResidualBlock(nn.Module):
             modules.append(nn.Conv2d(self.img_rep_channels, self.img_rep_channels, 3, padding=1))
             modules.append(nn.BatchNorm2d(self.img_rep_channels))
             modules.append(nn.ReLU(inplace=True))
-        
+
         modules.append(nn.Conv2d(self.img_rep_channels, self.img_rep_channels, 3, padding=1))
         modules.append(nn.BatchNorm2d(self.img_rep_channels))
         self.residual_block = nn.Sequential(*modules)
-        
+
 #         self.residual_block = nn.Sequential(
 #         nn.Conv2d(512, 512, 3, padding=1),
 #         nn.BatchNorm2d(512),
@@ -48,6 +49,32 @@ class Generator(nn.Module):
         super(Generator, self).__init__()
         self.img_rep_channels = kwargs["img_rep_channels"]
         self.text_embed_size = kwargs["text_embed_size"]
+
+
+        #TEXT ENCODER
+        #input: # of words in description x 300 (number of features in Fasttext embedding)
+        #output: caption representation of size 256
+
+        self.textEncoder = nn.Sequential(
+        nn.GRU(300, 256, bias = False, bidirectional = True),
+        nn.AvgPool1D(512, 1),
+        nn.Linear(512, 256, bias = False),
+        nn.LeakyReLU(0.2)
+        )
+
+        #CONDITIONING AUGMENTATION
+        #input: text representation of len 256
+        #output: text representation of len 128
+        self.mean = nn.Sequential(
+            nn.Linear(256, 128, bias=False),
+            nn.LeakyReLU(0.2, inplace=True)
+        )
+
+        self.log_sigma = nn.Sequential(
+            nn.Linear(256, 128, bias=False),
+            nn.LeakyReLU(0.2, inplace=True)
+        )
+
         
         # Applies 2D Convolution over an input signal
         # 4 different layers with different input and output sizes in each
@@ -56,6 +83,8 @@ class Generator(nn.Module):
         # Input size: 128 output size: 256, conv2d(4,2)
         # Input size: 256 output size: 512, conv2d(4,2)
         # With Batch normalization after each layer.
+
+        
         self.encoder = nn.Sequential(
         nn.Conv2d(3, 64, 3, padding=1),
         nn.ReLU(inplace=True),
@@ -80,7 +109,7 @@ class Generator(nn.Module):
         residual_block(),
         residual_block(),
         residual_block())
-        
+
         # input of output of modifier(residual blocks as a whole): 512*16*16
         # output of image size: 3*128*128
         self.decoder = nn.Sequential(
@@ -99,22 +128,37 @@ class Generator(nn.Module):
         nn.Conv2d(self.img_rep_channels/8, 3, 3, padding=1),
         nn.Tanh()
         )
-        
+
         # Sends the module to CUDA if applicable
         self.to(kwargs['device'])
 
+
+    #if this is getting params from __getitem__, then it should be img, description, embedding
+    #may not actually need raw description at this point though
     def forward(self, img, txt):
         # image encoder
         img_feat = self.encoder(img)
-        
-        # text encoder
+
+        #text encoder
+        txt_feat = self.textEncoder(txt)
+
+        #conditioning augementation of data
+        #Create a Gaussian distribution of text features
+        z_mean = self.mean(txt_feat)
+        z_log_stddev = self.log_sigma(txt_feat)
+        z = torch.randn(txt_feat.size(0), 128)
+        #if next(self.parameters()).is_cuda:
+         #   z = z.cuda()
+        txt_feat = z_mean + z_log_stddev.exp() * z
+
+        # assume output size of text encoder is 128
 
         # residual block
         # concatenate text embedding with image represenation
         text_feat = text_feat.unsqueeze(-1)
         text_feat = text_feat.unsqueeze(-1)
         merge = torch.cat(txt_feat, img_feat, 1)
-        
+
         merge = self.modifier(merge)
 
 
@@ -122,4 +166,3 @@ class Generator(nn.Module):
         # change img_feat to merge when testing with residual blocks
         decode_img = self.decoder(img_feat) # + output_from_residual_block)
         return decode_img
-
