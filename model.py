@@ -152,6 +152,38 @@ class Discriminator(nn.Module):
                 nn.LeakyReLU(negative_slope=0.2, inplace=False)
             )
 
+        class Unconditional(nn.Module):
+            def __init__(self, **kwargs):
+                super(Unconditional, self).__init__()
+
+            self.conv = nn.Sequential(
+                nn.Conv2d(512, 1, 4, 0, padding=1, bias=False)
+                nn.Softmax(dim=None)
+                )
+
+        class Conditional(nn.Module):
+            def __init__(self, **kwargs):
+                super(Conditional, self).__init__()
+
+            
+            def forward(self, alphas, betas, local_results):
+                '''
+                alphas: (batch_size, num_words)
+                betas: (batch_size, num_words, 3)
+                local_results: (batch_size, num_words, 3)
+                '''
+
+                # Add together last dimension of loca results with betas
+                # Multiply together second dimension of local results with alphas
+                # In discriminator write the alpha and beta classes.
+                
+
+
+
+
+
+
+
 
             def forward(self, gap_layer, img):
             '''
