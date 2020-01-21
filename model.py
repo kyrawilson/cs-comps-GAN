@@ -152,6 +152,21 @@ class Discriminator(nn.Module):
                 nn.LeakyReLU(negative_slope=0.2, inplace=False)
             )
 
+            def forward(self, gap_layer, img):
+            '''
+            gap_layer: int (3, 4, or 5), layer after which to output GAP
+            img: shape(batch size, width, height, num channels)
+            '''
+                assert gap_layer in range(3,6), "gap_layer must be 3, 4, or 5"
+                img = self.conv123(img)
+                if gap_layer == 3:
+                    return nn.AvgPool2d(16, stride=None, padding=0).forward(img)
+                img = self.conv4(img)
+                if gap_layer == 4:
+                    return nn.AvgPool2d(8, stride=None, padding=0).forward(img)
+                img = self.conv5(img)
+                return nn.AvgPool2d(4, stride=None, padding=0).forward(img)
+
         class Unconditional(nn.Module):
             def __init__(self, **kwargs):
                 super(Unconditional, self).__init__()
@@ -173,10 +188,50 @@ class Discriminator(nn.Module):
                 local_results: (batch_size, num_words, 3)
                 '''
 
-                # Add together last dimension of loca results with betas
+                # Add together last dimension of local results with betas
+                n_words = local_results.shape[1]
+                local_results_long = local_results.view(-1, 3)
+                local_results_long = local_results_long.unsqueeze(2)
+                betas_long = betas.view(-1, 3)
+                betas_long = betas_long.unsqueeze(1)
+                weighted_sum = torch.bmm(local_results_long, betas_long).squeeze()
+                weighted_sum = weighted_sum.view(-1, n_words)
                 # Multiply together second dimension of local results with alphas
+                # First raise weighted sums to alphas
+                weighted_prod = torch.pow(weighted_sum, alphas)
+                weighted_prod = torch.prod(weighted_prod)
+                return weighted_prod
                 # In discriminator write the alpha and beta classes.
-                
+
+
+       def forward(self, img, txt): 
+        ''' Image encoder
+
+        text encoder(batch_size, num_words, embedding_size)
+        '''
+
+        #txt_representation will relate to text encoder
+
+        # tmp_average: (batch_size, txt_representation)
+        # Our 'u' in equation 3
+        tmp_average = torch.mean(txt_representation, 1)
+        #adds extra dimension
+        # (batch_size, 1, txt_representation)
+        
+        #batch_size, 1, text_repesentation
+        represenation_size = txt_representation.shape[2]
+        txt_representation = txt_representation.view(-1, represenation_size)
+        txt_representation = txt_representation.unsqueeze(1)
+
+        tmp_average = tmp_average.expand(txt_representation.shape[0], tmp_average.shape[1])
+        tmp_average= tmp_average.unsqueeze(2)
+
+        dot_products = torch.bmm(txt_representation, tmp_average)
+        #ToDo: Exponentiate
+
+        
+
+        
 
 
 
@@ -185,17 +240,10 @@ class Discriminator(nn.Module):
 
 
 
-            def forward(self, gap_layer, img):
-            '''
-            gap_layer: int (3, 4, or 5), layer after which to output GAP
-            img: shape(batch size, width, height, num channels)
-            '''
-                assert gap_layer in range(3,6), "gap_layer must be 3, 4, or 5"
-                img = self.conv123(img)
-                if gap_layer == 3:
-                    return nn.AvgPool2d(16, stride=None, padding=0).forward(img)
-                img = self.conv4(img)
-                if gap_layer == 4:
-                    return nn.AvgPool2d(8, stride=None, padding=0).forward(img)
-                img = self.conv5(img)
-                return nn.AvgPool2d(4, stride=None, padding=0).forward(img)
+
+
+
+
+
+
+
