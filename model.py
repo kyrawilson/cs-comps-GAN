@@ -202,7 +202,11 @@ class Discriminator(nn.Module):
                 weighted_prod = torch.prod(weighted_prod)
                 return weighted_prod
                 # In discriminator write the alpha and beta classes.
-
+        
+        #Text encoder for the discriminator.
+        self.textEncoder = nn.Sequential(
+            nn.GRU(300, 256, bias = False, bidirectional = True)
+        )
 
        def forward(self, img, txt): 
         ''' Image encoder

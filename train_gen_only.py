@@ -11,6 +11,8 @@ image.
 Some simple utility code is reused from another personal research project.
 '''
 
+import torchvision
+
 import json
 import matplotlib
 import numpy as np
@@ -19,6 +21,7 @@ import random
 import time
 import torch
 # Needed for some reason to make CUDA work
+#Comment out if using cmc computer
 torch.cuda.current_device()
 import torch.nn as nn
 import torch.optim as optim
@@ -183,6 +186,33 @@ def train(G, epoch, loader, optimizer, val=False):
         # text = batch[1].to(kwargs['device'])
         text = batch[1]
         fake = G(img, text)
+        #Counter for naming the images
+        number = 0
+
+        #Outputs for Last epoch
+        #Better way to do this but 
+        # this was mainly just testing how to convert tensor
+        # Can be used as a model.
+        if(epoch == args.epochs - 1):
+            for image in fake:
+                number += 1
+                image = image.detach().numpy()
+                image = np.transpose(image, (1,2,0))
+                # print("This is the image type", image.dtype)
+                theString = str(number)
+                plt.imshow(image)
+                '''
+                Might get error saying:
+                Clipping input data to the valid range 
+                for imshow with RGB data ([0..1] for floats or [0..255] for integers).
+                '''
+                #plt.imshow((image).astype('uint8'))
+                plt.savefig("figure" + theString + ".png")
+            #print("-----------------------")
+
+
+
+
         # Measures dissimilarity between decoded image and input
         # Need to instantiate the loss fn - it's an object, not a function
         lossFn = nn.MSELoss()
