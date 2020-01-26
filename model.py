@@ -166,3 +166,34 @@ class Generator(nn.Module):
         # change img_feat to merge when testing with residual blocks
         decode_img = self.decoder(img_feat) # + output_from_residual_block)
         return decode_img
+    
+class Discriminator(nn.Module):
+    def __init__(self, **kwargs):
+        super(Discriminator, self).__init__()
+        
+    class textEncoder(nn.Module):
+        def __init__(self, **kwargs):
+                super(textEncoder, self).__init__()
+        
+        self.text_encoder= nn.GRU(300, 256, bidirectional=True)
+        # what is the dimension for softmax function
+        self.beta_ij = nn.Sequential(
+            nn.Linear(512, 3),
+            nn.Softmax(dim=None)
+        )
+        #output size=1
+        self.alpha = nn.Softmax(dim=1)
+        self.weight = nn.Linear(512, 1)
+        self.bias = nn.Linear(512, 1, bias=True)
+        self.local_dis = nn.Sigmoid()
+        
+        def forward(self, txt, img):
+            txt = self.textencoder(txt)
+            
+            for w_i in txt:
+                _weight = self.weight(w_i)
+                weight = self.weight.layer.weight.view(-1,1)
+                _bias = self.bias(w_i)
+                bias = self.bias.layer.bias
+                img = img.view(1, len(weight))
+                local_discriminator = self.local_dis(torch.mm(weight, img) + bias)
