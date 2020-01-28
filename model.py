@@ -183,7 +183,7 @@ class Discriminator(nn.Module):
         )
         #output size=1
         self.alpha = nn.Softmax(dim=1)
-        self.weight = nn.Linear(512, 1)
+        self.weight = nn.Linear(512, 1, bias=False)
         self.bias = nn.Linear(512, 1, bias=True)
         self.local_dis = nn.Sigmoid()
         
