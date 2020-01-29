@@ -187,8 +187,14 @@ class Discriminator(nn.Module):
         self.bias = nn.Linear(512, 1, bias=True)
         self.local_dis = nn.Sigmoid()
         
+        #Can't remember commenting guidelines so it's just going here and we can change later
+        #Params: txt-# words x 300, img from conv3, conv4, or conv5
+        #Returns: Tensor with "score" for each word in sentence of whether or not it appears in image
+        #Will need to be called after each conv layer, so join individual local_discriminator return tensors at the very end
         def forward(self, txt, img):
+            local_discriminator = torch.zeros(list(txt.size())[0])
             txt = self.textencoder(txt)
+            count = 0
             
             for w_i in txt:
                 _weight = self.weight(w_i)
@@ -196,4 +202,9 @@ class Discriminator(nn.Module):
                 _bias = self.bias(w_i)
                 bias = self.bias.layer.bias
                 img = img.view(1, len(weight))
-                local_discriminator = self.local_dis(torch.mm(weight, img) + bias)
+                _local_discriminator = self.local_dis(torch.mm(weight, img) + bias)
+                local_discriminator[count] = _local_discriminator
+                count += 1
+            
+            return count
+                
