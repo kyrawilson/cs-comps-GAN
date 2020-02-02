@@ -166,3 +166,45 @@ class Generator(nn.Module):
         # change img_feat to merge when testing with residual blocks
         decode_img = self.decoder(img_feat) # + output_from_residual_block)
         return decode_img
+    
+class Discriminator(nn.Module):
+    def __init__(self, **kwargs):
+        super(Discriminator, self).__init__()
+        
+    class textEncoder(nn.Module):
+        def __init__(self, **kwargs):
+                super(textEncoder, self).__init__()
+        
+        self.text_encoder= nn.GRU(300, 256, bidirectional=True)
+        # what is the dimension for softmax function
+        self.beta_ij = nn.Sequential(
+            nn.Linear(512, 3),
+            nn.Softmax(dim=None)
+        )
+        #output size=1
+        self.alpha = nn.Softmax(dim=1)
+        self.weight = nn.Linear(512, 1, bias=False)
+        self.bias = nn.Linear(512, 1, bias=True)
+        self.local_dis = nn.Sigmoid()
+        
+        #Can't remember commenting guidelines so it's just going here and we can change later
+        #Params: txt-# words x 300, img from conv3, conv4, or conv5
+        #Returns: Tensor with "score" for each word in sentence of whether or not it appears in image
+        #Will need to be called after each conv layer, so join individual local_discriminator return tensors at the very end
+        def forward(self, txt, img):
+            local_discriminator = torch.zeros(list(txt.size())[0])
+            txt = self.textencoder(txt)
+            count = 0
+            
+            for w_i in txt:
+                _weight = self.weight(w_i)
+                weight = self.weight.layer.weight.view(-1,1)
+                _bias = self.bias(w_i)
+                bias = self.bias.layer.bias
+                img = img.view(1, len(weight))
+                _local_discriminator = self.local_dis(torch.mm(weight, img) + bias)
+                local_discriminator[count] = _local_discriminator
+                count += 1
+            
+            return count
+                
