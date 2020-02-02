@@ -171,11 +171,6 @@ class Discriminator(nn.Module):
     def __init__(self, **kwargs):
         super(Discriminator, self).__init__()
         
-    class textEncoder(nn.Module):
-        def __init__(self, **kwargs):
-                super(textEncoder, self).__init__()
-        
-        self.text_encoder= nn.GRU(300, 256, bidirectional=True)
         # what is the dimension for softmax function
         self.beta_ij = nn.Sequential(
             nn.Linear(512, 3),
@@ -183,6 +178,13 @@ class Discriminator(nn.Module):
         )
         #output size=1
         self.alpha = nn.Softmax(dim=1)
+        
+    class textEncoder(nn.Module):
+        def __init__(self, **kwargs):
+                super(textEncoder, self).__init__()
+        
+        self.text_encoder= nn.GRU(300, 256, bidirectional=True)
+        
         self.weight = nn.Linear(512, 1, bias=False)
         self.bias = nn.Linear(512, 1, bias=True)
         self.local_dis = nn.Sigmoid()
