@@ -206,5 +206,5 @@ class Discriminator(nn.Module):
                 local_discriminator[count] = _local_discriminator
                 count += 1
             
-            return count
+            return local_discriminator
                 
