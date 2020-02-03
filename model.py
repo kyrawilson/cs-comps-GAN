@@ -171,6 +171,48 @@ class Discriminator(nn.Module):
     def __init__(self, **kwargs):
         super(Discriminator, self).__init__()
         
+    
+        class ImageEncoder(nn.Module):
+            def __init__(self, **kwargs):
+                super(ImageEncoder, self).__init__()
+
+            self.conv123 = nn.Sequential(
+                nn.Conv2d(3, 64, 4, 2, padding=1, bias=False),
+                nn.LeakyReLU(negative_slope=0.2, inplace=False),
+                nn.Conv2d(64, 128, 4, 2, padding=1, bias=False),
+                nn.BatchNorm2d(128),
+                nn.LeakyReLU(negative_slope=0.2, inplace=False),
+                n.Conv2d(128, 256, 4, 2, padding=1, bias=False),
+                nn.BatchNorm2d(256),
+                nn.LeakyReLU(negative_slope=0.2, inplace=False)
+            )
+            self.conv4 = nn.Sequential(
+                n.Conv2d(256, 512, 4, 2, padding=1, bias=False),
+                nn.BatchNorm2d(512),
+                nn.LeakyReLU(negative_slope=0.2, inplace=False)
+            )
+            self.conv5 = nn.Sequential(
+                n.Conv2d(512, 512, 4, 2, padding=1, bias=False),
+                nn.BatchNorm2d(512),
+                nn.LeakyReLU(negative_slope=0.2, inplace=False)
+            )
+
+
+            def forward(self, gap_layer, img):
+            '''
+            gap_layer: int (3, 4, or 5), layer after which to output GAP
+            img: shape(batch size, width, height, num channels)
+            '''
+                assert gap_layer in range(3,6), "gap_layer must be 3, 4, or 5"
+                img = self.conv123(img)
+                if gap_layer == 3:
+                    return nn.AvgPool2d(16, stride=None, padding=0).forward(img)
+                img = self.conv4(img)
+                if gap_layer == 4:
+                    return nn.AvgPool2d(8, stride=None, padding=0).forward(img)
+                img = self.conv5(img)
+                return nn.AvgPool2d(4, stride=None, padding=0).forward(img)
+        
     class textEncoder(nn.Module):
         def __init__(self, **kwargs):
                 super(textEncoder, self).__init__()
@@ -207,4 +249,4 @@ class Discriminator(nn.Module):
                 count += 1
             
             return local_discriminator
-                
+               
