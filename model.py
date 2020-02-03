@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.optim as optim
 
 
     # def forward(self, img, txt_feat):
@@ -49,6 +50,32 @@ class Generator(nn.Module):
         self.img_rep_channels = kwargs["img_rep_channels"]
         self.text_embed_size = kwargs["text_embed_size"]
 
+
+        #TEXT ENCODER
+        #input: # of words in description x 300 (number of features in Fasttext embedding)
+        #output: caption representation of size 256
+
+        self.textEncoder = nn.Sequential(
+        nn.GRU(300, 256, bias = False, bidirectional = True),
+        nn.AvgPool1D(512, 1),
+        nn.Linear(512, 256, bias = False),
+        nn.LeakyReLU(0.2)
+        )
+
+        #CONDITIONING AUGMENTATION
+        #input: text representation of len 256
+        #output: text representation of len 128
+        self.mean = nn.Sequential(
+            nn.Linear(256, 128, bias=False),
+            nn.LeakyReLU(0.2, inplace=True)
+        )
+
+        self.log_sigma = nn.Sequential(
+            nn.Linear(256, 128, bias=False),
+            nn.LeakyReLU(0.2, inplace=True)
+        )
+
+        
         # Applies 2D Convolution over an input signal
         # 4 different layers with different input and output sizes in each
         # Input size: 3 output size: 64, conv2d(3,1)
@@ -56,6 +83,8 @@ class Generator(nn.Module):
         # Input size: 128 output size: 256, conv2d(4,2)
         # Input size: 256 output size: 512, conv2d(4,2)
         # With Batch normalization after each layer.
+
+        
         self.encoder = nn.Sequential(
         nn.Conv2d(3, 64, 3, padding=1),
         nn.ReLU(inplace=True),
@@ -103,11 +132,26 @@ class Generator(nn.Module):
         # Sends the module to CUDA if applicable
         self.to(kwargs['device'])
 
+
+    #if this is getting params from __getitem__, then it should be img, description, embedding
+    #may not actually need raw description at this point though
     def forward(self, img, txt):
         # image encoder
         img_feat = self.encoder(img)
 
-        # text encoder
+        #text encoder
+        txt_feat = self.textEncoder(txt)
+
+        #conditioning augementation of data
+        #Create a Gaussian distribution of text features
+        z_mean = self.mean(txt_feat)
+        z_log_stddev = self.log_sigma(txt_feat)
+        z = torch.randn(txt_feat.size(0), 128)
+        #if next(self.parameters()).is_cuda:
+         #   z = z.cuda()
+        txt_feat = z_mean + z_log_stddev.exp() * z
+
+        # assume output size of text encoder is 128
 
         # residual block
         # concatenate text embedding with image represenation
@@ -122,11 +166,12 @@ class Generator(nn.Module):
         # change img_feat to merge when testing with residual blocks
         decode_img = self.decoder(img_feat) # + output_from_residual_block)
         return decode_img
-
+    
 class Discriminator(nn.Module):
     def __init__(self, **kwargs):
         super(Discriminator, self).__init__()
-
+        
+    
         class ImageEncoder(nn.Module):
             def __init__(self, **kwargs):
                 super(ImageEncoder, self).__init__()
@@ -167,3 +212,41 @@ class Discriminator(nn.Module):
                     return nn.AvgPool2d(8, stride=None, padding=0).forward(img)
                 img = self.conv5(img)
                 return nn.AvgPool2d(4, stride=None, padding=0).forward(img)
+        
+    class textEncoder(nn.Module):
+        def __init__(self, **kwargs):
+                super(textEncoder, self).__init__()
+        
+        self.text_encoder= nn.GRU(300, 256, bidirectional=True)
+        # what is the dimension for softmax function
+        self.beta_ij = nn.Sequential(
+            nn.Linear(512, 3),
+            nn.Softmax(dim=None)
+        )
+        #output size=1
+        self.alpha = nn.Softmax(dim=1)
+        self.weight = nn.Linear(512, 1, bias=False)
+        self.bias = nn.Linear(512, 1, bias=True)
+        self.local_dis = nn.Sigmoid()
+        
+        #Can't remember commenting guidelines so it's just going here and we can change later
+        #Params: txt-# words x 300, img from conv3, conv4, or conv5
+        #Returns: Tensor with "score" for each word in sentence of whether or not it appears in image
+        #Will need to be called after each conv layer, so join individual local_discriminator return tensors at the very end
+        def forward(self, txt, img):
+            local_discriminator = torch.zeros(list(txt.size())[0])
+            txt = self.textencoder(txt)
+            count = 0
+            
+            for w_i in txt:
+                _weight = self.weight(w_i)
+                weight = self.weight.layer.weight.view(-1,1)
+                _bias = self.bias(w_i)
+                bias = self.bias.layer.bias
+                img = img.view(1, len(weight))
+                _local_discriminator = self.local_dis(torch.mm(weight, img) + bias)
+                local_discriminator[count] = _local_discriminator
+                count += 1
+            
+            return local_discriminator
+               
