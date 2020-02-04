@@ -148,7 +148,7 @@ def make_model_dir(out_dir):
         os.makedirs(os.path.join(out_dir, model_id))
     return model_id, os.path.join(out_dir, model_id)
 
-def train(G, epoch, loader, optimizer, val=False):
+def train(G, epoch, loader, txt_loader, optimizer, val=False):
     """ Train (or validate) models for a single epoch.
     """
     val = optimizer == None
@@ -157,13 +157,22 @@ def train(G, epoch, loader, optimizer, val=False):
     # Sets model in training mode
     G.train()
     total_loss = 0
-    pbar = tqdm(total=len(train_loader))
-    for batch_idx, batch in enumerate(train_loader):
+    pbar = tqdm(total=len(loader))
+    for batch_idx, (batch, txt_batch) in enumerate(zip(loader, txt_loader)):
         if not val:
             optimizer.zero_grad()
         img = batch[0].to(kwargs['device'])
-        # text = batch[1].to(kwargs['device'])
+        unconditional_logits_real = D(img)
         text = batch[1]
+        conditional_logits_real = D(img, text)
+        #Left off here
+        #TODO: conditional_logits_mismatch and uncoditional_logits_fake
+        
+        
+        # text = batch[1].to(kwargs['device'])
+        text_mismatch = txt_batch[1]
+        #TODO: 'text' should potentially be 'embedding' instead (and batch[2])
+        #Maybe mix up mismatching text at some point during the training?
         fake = G(img, text)
         # Measures dissimilarity between decoded image and input
         # Need to instantiate the loss fn - it's an object, not a function
