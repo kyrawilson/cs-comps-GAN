@@ -21,9 +21,13 @@ class ResidualBlock(nn.Module):
 
     def __init__(self, **kwargs):
         super(ResidualBlock,self).__init__()
-        self.img_rep_channels = kwargs["img_rep_dim"]
+        # Needs to be fixed though I do not know why because it's in kwargs
+        self.img_rep_channels = 512
+        #self.img_rep_channels = kwargs["img_rep_dim"]
         modules = []
-        num_layers = kwargs["num_resid_block_layers"]
+        # "num_resid_block_layers" not in kwargs
+        #num_layers = kwargs["num_resid_block_layers"]
+        num_layers = 3
         for i in range(num_layers-1):
             modules.append(nn.Conv2d(self.img_rep_channels, self.img_rep_channels, 3, padding=1))
             modules.append(nn.BatchNorm2d(self.img_rep_channels))
@@ -47,7 +51,9 @@ class ResidualBlock(nn.Module):
 class Generator(nn.Module):
     def __init__(self, **kwargs):
         super(Generator, self).__init__()
-        self.img_rep_channels = kwargs["img_rep_dim"]
+        # TODO: needs to fix this kwargs as well
+        self.img_rep_channels = 512
+        #self.img_rep_channels = kwargs["img_rep_dim"]
         self.text_embed_size = kwargs["text_rep_dim"]
 
 
@@ -105,27 +111,27 @@ class Generator(nn.Module):
         nn.Conv2d(self.img_rep_channels+self.text_embed_size, self.img_rep_channels, 3, padding=1, bias=False),
         nn.BatchNorm2d(self.img_rep_channels),
         nn.ReLU(inplace=True),
-        residual_block(),
-        residual_block(),
-        residual_block(),
-        residual_block())
+        ResidualBlock(),
+        ResidualBlock(),
+        ResidualBlock(),
+        ResidualBlock())
 
         # input of output of modifier(residual blocks as a whole): 512*16*16
         # output of image size: 3*128*128
         self.decoder = nn.Sequential(
         nn.Upsample(scale_factor=2),
-        nn.Conv2d(self.img_rep_channels, self.img_rep_channels/2, 3, padding=1, bias=False),
-        nn.BatchNorm2d(self.img_rep_channels/2),
+        nn.Conv2d(self.img_rep_channels, int(self.img_rep_channels/2), 3, padding=1, bias=False),
+        nn.BatchNorm2d(int(self.img_rep_channels/2)),
         nn.ReLU(inplace=True),
         nn.Upsample(scale_factor=2),
-        nn.Conv2d(self.img_rep_channels/2, self.img_rep_channels/4, 3, padding=1, bias=False),
-        nn.BatchNorm2d(self.img_rep_channels/4),
+        nn.Conv2d(int(self.img_rep_channels/2), int(self.img_rep_channels/4), 3, padding=1, bias=False),
+        nn.BatchNorm2d(int(self.img_rep_channels/4)),
         nn.ReLU(inplace=True),
         nn.Upsample(scale_factor=2),
-        nn.Conv2d(self.img_rep_channels/4, self.img_rep_channels/8, 3, padding=1, bias=False),
-        nn.BatchNorm2d(self.img_rep_channels/8),
+        nn.Conv2d(int(self.img_rep_channels/4), int(self.img_rep_channels/8), 3, padding=1, bias=False),
+        nn.BatchNorm2d(int(self.img_rep_channels/8)),
         nn.ReLU(inplace=True),
-        nn.Conv2d(self.img_rep_channels/8, 3, 3, padding=1),
+        nn.Conv2d(int(self.img_rep_channels/8), 3, 3, padding=1),
         nn.Tanh()
         )
 
@@ -296,12 +302,12 @@ class Discriminator(nn.Module):
         )
 
     #forward function for Discriminator
-    def forward(self, img, txt):
+    def forward(self, img, txt=None):
         ''' Image encoder
 
         text encoder(batch_size, num_words, embedding_size)
         '''
-
+        batch_size = len(img)
         img_feats = []
         img_feat = img
         for gap_layer in range(3,6):
@@ -310,10 +316,11 @@ class Discriminator(nn.Module):
 
         # Unconditional discriminator
         if txt is None:
-            return self.unconditional(img_feat)
+            return self.unconditional(img_feats)
 
         # Conditional discriminator
         txt_representation = self.textEncoderGRU(txt)
+
 
         #alphas
         #txt_representation will relate to text encoder

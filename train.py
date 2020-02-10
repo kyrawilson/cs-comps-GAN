@@ -245,6 +245,7 @@ if __name__ == "__main__":
     # one row of losses for training, one for testing
     losses = np.zeros((args.epochs, 2))
     G = Generator(**kwargs)
+    #TODO: it is saying Discriminator not defined
     D = Discriminator(**kwargs)
     # TODO maybe only get parameters in G that require gradients?
     # optim_G = optim.Adam(G.parameters(), lr=args.lr, weight_decay=1e-4)

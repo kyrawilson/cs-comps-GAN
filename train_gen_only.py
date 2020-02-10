@@ -1,4 +1,4 @@
-''' 
+'''
 File: train.py
 Author: Will Schwarzer (schwarzerw@carleton.edu)
 Date: October 25, 2019
@@ -22,7 +22,7 @@ import time
 import torch
 # Needed for some reason to make CUDA work
 #Comment out if using cmc computer
-torch.cuda.current_device()
+#torch.cuda.current_device()
 import torch.nn as nn
 import torch.optim as optim
 import torchvision.transforms as transforms
@@ -99,7 +99,7 @@ def set_seeds(seed):
     return seed
 
 def make_model_dir(out_dir):
-    ''' Make a directory for results and parameters of the current model, 
+    ''' Make a directory for results and parameters of the current model,
     using a randomly generated identifier'''
     # Model IDs
     ### Models are stored in ./saves/models, in folders with their id as the name
@@ -142,7 +142,7 @@ def make_kwargs(args, seed, model_id):
     }
 
     # Dump kwargs to model folder
-    with open(os.path.join(args.out_dir, model_id, 'params.json'), 
+    with open(os.path.join(args.out_dir, model_id, 'params.json'),
               'w') as params_f:
         # indent: when set to something besides None, enables pretty-printing
         # of json file; the specific integer sets the tab size in num. spaces
@@ -190,7 +190,7 @@ def train(G, epoch, loader, optimizer, val=False):
         number = 0
 
         #Outputs for Last epoch
-        #Better way to do this but 
+        #Better way to do this but
         # this was mainly just testing how to convert tensor
         # Can be used as a model.
         if(epoch == args.epochs - 1):
@@ -203,7 +203,7 @@ def train(G, epoch, loader, optimizer, val=False):
                 plt.imshow(image)
                 '''
                 Might get error saying:
-                Clipping input data to the valid range 
+                Clipping input data to the valid range
                 for imshow with RGB data ([0..1] for floats or [0..255] for integers).
                 '''
                 #plt.imshow((image).astype('uint8'))
@@ -260,7 +260,7 @@ if __name__ == "__main__":
     train_data = ImgCaptionData(**kwargs)
     # The dataloader takes the data in our Dataset object, shuffles it,
     # and then turns it into a batch iterator
-    train_loader = data.DataLoader(train_data, 
+    train_loader = data.DataLoader(train_data,
                                    batch_size=args.bsize,
                                    shuffle=True)
 
@@ -273,7 +273,7 @@ if __name__ == "__main__":
     # Store the training (first column) and val (first column) losses
     # for each epoch, in order to graph them later
     losses = np.zeros((args.epochs, 2))
-    # Make a generator object, using kwargs to pass in hyperparameters 
+    # Make a generator object, using kwargs to pass in hyperparameters
     G = Generator(**kwargs)
     # TODO maybe only get parameters in G that require gradients?
     # Instantiate an "Adam" type optimizer over G's parameters (i.e. weights)
@@ -282,8 +282,8 @@ if __name__ == "__main__":
     # The gradients of previous epochs decay exponentially by a factor of
     # args.momentum (for non-squared gradients) and args.square_momentum (for
     # squared gradients)
-    optim_G = optim.Adam(G.parameters(), 
-                         lr=0.002, 
+    optim_G = optim.Adam(G.parameters(),
+                         lr=0.002,
                          betas=[args.momentum, args.square_momentum])
     for epoch in range(args.epochs):
         # train generator
