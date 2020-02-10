@@ -246,6 +246,7 @@ if __name__ == "__main__":
     losses = np.zeros((args.epochs, 2))
     G = Generator(**kwargs)
     #TODO: it is saying Discriminator not defined
+    # It may be the issue that only subclasses are con
     D = Discriminator(**kwargs)
     # TODO maybe only get parameters in G that require gradients?
     # optim_G = optim.Adam(G.parameters(), lr=args.lr, weight_decay=1e-4)

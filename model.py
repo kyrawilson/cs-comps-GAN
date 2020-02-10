@@ -176,11 +176,8 @@ class Generator(nn.Module):
 class Discriminator(nn.Module):
     def __init__(self, **kwargs):
         super(Discriminator, self).__init__()
-
-
         #Batch size from kwargs
         self.batch_size = kwargs["batch_size"]
-
 
         class ImageEncoder(nn.Module):
             def __init__(self, **kwargs):
