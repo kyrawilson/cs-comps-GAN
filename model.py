@@ -298,7 +298,21 @@ class Discriminator(nn.Module):
 
         text encoder(batch_size, num_words, embedding_size)
         '''
+        
+        img_feats = []
+        img_feat = img
+        for gap_layer in range(3,6):
+            img_feat = ImageEncoder(gap_layer, img_feat)
+            img_feats.append(img_feat)
 
+        # Unconditional discriminator
+        if txt is None:
+            return self.unconditional(img_feat)
+
+        # Conditional discriminator
+        txt_representation = self.textEncoderGRU(txt)
+
+        #alphas
         #txt_representation will relate to text encoder
 
         # tmp_average: (batch_size, txt_representation)
@@ -306,8 +320,9 @@ class Discriminator(nn.Module):
         tmp_average = torch.mean(txt_representation, 1)
         #adds extra dimension
         # (batch_size, 1, txt_representation)
-        
+
         #batch_size, 1, text_repesentation
+        
         represenation_size = txt_representation.shape[2]
         txt_representation = txt_representation.view(-1, represenation_size)
         txt_representation = txt_representation.unsqueeze(1)
@@ -316,7 +331,33 @@ class Discriminator(nn.Module):
         tmp_average= tmp_average.unsqueeze(2)
 
         dot_products = torch.bmm(txt_representation, tmp_average)
-        #ToDo: Exponentiate
+
+        alphas = torch.zeros(batch_size, len(txt_representation))
+        for i in range(batch_size):
+            alpha = self.alpha(dot_products)
+            alphas[i] = alpha
+
+        betas = torch.zeros(batch_size, len(txt_representation), 3)
+        local_results = torch.zeros(batch_size, len(txt_representation), 3)
+
+        count = 0
+        for i in range(batch_size):
+            for w_i in txt_representation:
+                for j in range(3):
+                    beta = self.beta(w_i)
+                    betas[i][count][j] = beta
+                count+= 1
+
+        for i in range(batch_size):
+            for j in range(3):
+                local_result = textEncoder(txt, img_feats[j])
+                local_results[i] = local_result
+
+
+
+            # local_results dimensiont: bsize in kwargs, txt length, 3
+
+        weight_prod = Conditional(alphas, betas, local_results)
         
 
                
