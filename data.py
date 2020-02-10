@@ -44,12 +44,11 @@ class ImgCaptionData(data.Dataset):
 
     def __init__(self, **kwargs):
         #super(whatever)__init__()?
-        print("Loading fasttext model...")
+        #print("Loading fasttext model...")
         #self.word_embedding = fasttext.load_model(FT_file)
-        print("Fast text is loaded!")
+        #print("Fast text is loaded!")
 
         self.word_embedding = pickle.load(open( "caption_embedding.pkl", "rb" ))
-        print(self.word_embedding)
         self.data = self.load_dataset(kwargs['img_files'], kwargs['caption_files'], kwargs['classes_file'])
 
         #add in kwargs here

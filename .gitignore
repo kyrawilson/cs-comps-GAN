@@ -2,9 +2,8 @@
 
 #Big word vectors file
 *.bin
-
-# Model saves
-saves/
+*.pkl
+caption_embedding.pkl
 
 ##############################################################
 

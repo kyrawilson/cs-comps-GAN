@@ -39,11 +39,10 @@ def load_dataset(img_files, caption_files, classes_file):
 
                 if not(caption_path.startswith("._")):
                     with open(caption_path) as f2:
-                        print(caption_path)
                         caption_list = f2.readlines()
                         #Might need to strip newline char here
                         embedding = get_word_embedding(caption_list)
-                        output["caption_path"] = get_word_embedding(caption_list)
+                        output[caption_path] = get_word_embedding(caption_list)
 
                         f2.close()
     f.close()
