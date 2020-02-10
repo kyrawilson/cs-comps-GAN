@@ -52,6 +52,10 @@ def parse_args():
                         help='size of the image representation')
     parser.add_argument('--lr', type=float, default=2e-3, metavar='LR',
                         help='learning rate')
+    parser.add_argument('--lambda-1', type=float, default=10, metavar='L1',
+                        help='weighting of conditional loss for discriminator')
+    parser.add_argument('--lambda-2', type=float, default=2, metavar='L2',
+                        help='weighting of reconstructive loss for generator')
     parser.add_argument('--log-interval', type=int, default=10, metavar='N',
                         help='how many batches to wait before logging training status')
     parser.add_argument('--momentum', type=float, default=0.5,
@@ -91,6 +95,7 @@ def make_kwargs(args, seed, model_id):
         'bsize': args.bsize,
         'caption_files': os.path.join(args.data, args.caption_files),
         'classes_file': os.path.join(args.data, args.classes_file),
+        'conditional_weight': args.lambda_1,
         'cuda': args.cuda,
         'data': args.data,
         'date:': time.strftime("%Y-%m-%d %H:%M"),
@@ -100,6 +105,7 @@ def make_kwargs(args, seed, model_id):
         'img_rep_dim': args.img_rep_dim,
         'model_id': model_id,
         'momentum': args.momentum,
+        'reconstructive_weight': args.lambda_2,
         'seed': seed,
         'schedule_epochs': args.schedule_epochs,
         'schedule_gamma': args.schedule_gamma,
@@ -148,7 +154,7 @@ def make_model_dir(out_dir):
         os.makedirs(os.path.join(out_dir, model_id))
     return model_id, os.path.join(out_dir, model_id)
 
-def train(G, epoch, loader, optimizer, val=False):
+def train(G, D, epoch, loader, G_optim, D_optim, val=False):
     """ Train (or validate) models for a single epoch.
     """
     val = optimizer == None
@@ -160,41 +166,63 @@ def train(G, epoch, loader, optimizer, val=False):
     pbar = tqdm(total=len(train_loader))
     for batch_idx, (batch, txt_batch) in enumerate(zip(loader, txt_loader)):
         if not val:
-            optimizer.zero_grad()
+            G_optim.zero_grad()
+            D_optim.zero_grad()
         img = batch[0].to(kwargs['device'])
+        # Need to instantiate the loss fn - it's an object, not a function
+        loss_fn = nn.CrossEntropyLoss()
+        target = torch.ones([batch_size]).double()
         unconditional_logits_real = D(img)
+        unconditional_loss_real = loss_fn(unconditional_logits_real, target)
         text = batch[1]
         conditional_logits_real = D(img, text)
+        conditional_loss_real = loss_fn(conditional_logits_real, target)
         #Left off here
         #TODO: conditional_logits_mismatch and uncoditional_logits_fake
-        
-        
-        # text = batch[1].to(kwargs['device'])
         text_mismatch = txt_batch[1]
+        conditional_logits_mismatch = D(img, text_mismatch)
+        target = 1-target
+        conditional_loss_mismatch = loss_fn(conditional_logits_mismatch, target)
+        fake = G(img, text_mismatch)
+        unconditional_logits_fake = D(fake)
+        unconditional_loss_fake = loss_fn(unconditional_logits_fake, target)
+        loss_D = unconditional_loss_real + unconditional_loss_fake + \
+                kwargs['conditional_weight']*(conditional_loss_real + conditional_loss_mismatch)
+        if not val:
+            loss_D.backward()
+            D_optim.step()
+        # text = batch[1].to(kwargs['device'])
         #TODO: 'text' should potentially be 'embedding' instead (and batch[2])
         #Maybe mix up mismatching text at some point during the training?
-        fake = G(img, text)
+        ### Get generator's loss
+        target = 1-target
+        unconditional_loss_fake = loss_fn(unconditional_logits_fake, target)
+        conditional_logits_fake = D(fake, text_mismatch)
+        conditional_loss_fake = loss_fn(conditional_logits_fake, target)
         # Measures dissimilarity between decoded image and input
-        # Need to instantiate the loss fn - it's an object, not a function
-        lossFn = nn.MSELoss()
-        loss = lossFn(fake, img)
-        total_loss += loss
+        l2_fn = nn.MSELoss()
+        reconstructive_loss = l2_fn(fake, img)
+        loss_G = unconditional_loss_fake + kwargs['conditional_weight']*conditional_loss_fake +\
+                kwargs['reconstructive_weight']*reconstructive_loss
         if not val:
-            loss.backward()
-            optimizer.step()
+            loss_G.backward()
+            G_optim.step()
+        total_loss_G += loss_G
+        total_loss_D += loss_D
         # Update progress
         if batch_idx % args.log_interval == 0:
             if val:
                 type = 'Val'
             else:
                 type = 'Train'
-            avg_loss = total_loss/((batch_idx+1)*img.shape[0])
+            avg_loss_G = total_loss_G/((batch_idx+1)*img.shape[0])
+            avg_loss_D = total_loss_D/((batch_idx+1)*img.shape[0])
             print()
-            print(type + ' epoch {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
+            print(type + ' epoch {} [{}/{} ({:.0f}%)]\tGen Loss: {:.6f}\tDisc Loss: {:.6f}'.format(
                 epoch, batch_idx * img.shape[0], len(train_loader.dataset),
-                100. * batch_idx / len(train_loader), avg_loss))
+                100. * batch_idx / len(train_loader), avg_loss_G, avg_loss_D))
         pbar.update()
-    print('====> Epoch: {} Average loss: {:.4f}'.format(epoch, avg_loss))
+        print('====> Epoch: {} Average gen loss: {:.4f}\t Average disc loss: {:.4f}'.format(epoch, avg_loss_G, avg_loss_D))
     pbar.close()
     return avg_loss
 
@@ -217,6 +245,7 @@ if __name__ == "__main__":
     # one row of losses for training, one for testing
     losses = np.zeros((args.epochs, 2))
     G = Generator(**kwargs)
+    D = Discriminator(**kwargs)
     # TODO maybe only get parameters in G that require gradients?
     # optim_G = optim.Adam(G.parameters(), lr=args.lr, weight_decay=1e-4)
     for epoch in range(args.epochs):
@@ -224,7 +253,10 @@ if __name__ == "__main__":
         optim_G = optim.Adam(G.parameters(),
                              lr=0.002,
                              betas=[args.momentum, args.square_momentum])
-        avg_train_loss = train(G, epoch, train_loader, optim_G)
+        optim_D = optim.Adam(D.parameters(),
+                             lr=0.002,
+                             betas=[args.momentum, args.square_momentum])
+        avg_train_loss = train(G, D, epoch, train_loader, optim_G, optim_D)
         losses[epoch][0] = avg_train_loss
 
         # test generator
