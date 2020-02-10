@@ -15,7 +15,7 @@ import os
 import random
 import time
 import torch
-torch.cuda.current_device()
+#torch.cuda.current_device()
 import torch.nn as nn
 import torch.optim as optim
 import torchvision.transforms as transforms

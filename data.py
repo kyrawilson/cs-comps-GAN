@@ -25,6 +25,8 @@ import random
 import torch.utils.data as data
 import torchvision.transforms as transforms
 
+import pickle
+
 from string import digits
 from PIL import Image
 
@@ -32,6 +34,11 @@ FT_file = "mini_TAGAN_data/cc.en.300.bin"
 img_files = "mini_TAGAN_data/images"
 caption_files = "mini_TAGAN_data/text_c10"
 classes_file = "mini_TAGAN_data/classes.txt"
+img_transform = transforms.Compose([transforms.Resize((136,136)),
+                                         transforms.RandomCrop(128),
+                                         transforms.RandomHorizontalFlip(),
+                                         transforms.RandomRotation(10),
+                                         transforms.ToTensor()])
 
 class ImgCaptionData(data.Dataset):
 
@@ -40,10 +47,17 @@ class ImgCaptionData(data.Dataset):
         print("Loading fasttext model...")
         self.word_embedding = fasttext.load_model(FT_file)
         print("Fast text is loaded!")
+
+        #self.word_embedding = pickle.load(open( "caption_embedding.pkl", "rb" ))
+        print(self.word_embedding)
         self.data = self.load_dataset(kwargs['img_files'], kwargs['caption_files'], kwargs['classes_file'])
 
         #add in kwargs here
-        self.img_transform = img_transform
+        self.img_transform = transforms.Compose([transforms.Resize((136,136)),
+                                                 transforms.RandomCrop(128),
+                                                 transforms.RandomHorizontalFlip(),
+                                                 transforms.RandomRotation(10),
+                                                 transforms.ToTensor()])
 
         self.max_word_length = 50
 
@@ -105,6 +119,9 @@ class ImgCaptionData(data.Dataset):
 
         return output
 
+    def get_word_embedding_fast(self, caption_path):
+        return self.word_embedding[caption_path]
+
     def __len__(self):
         return len(self.data)
 
@@ -119,7 +136,7 @@ class ImgCaptionData(data.Dataset):
         class_name = value['class_name'][randIndex]
         return image, description, embedding, class_name
 
-test = ImgCaptionData(img_files, caption_files, classes_file, img_transform = None)
+#test = ImgCaptionData(img_files, caption_files, classes_file, img_transform = None)
 
 ###TODO:
 #right now classes file is all of the classes
