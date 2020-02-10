@@ -28,10 +28,10 @@ import torchvision.transforms as transforms
 from string import digits
 from PIL import Image
 
-FT_file = "mini_TAGAN_data/cc.en.300.bin"
-img_files = "mini_TAGAN_data/images"
-caption_files = "mini_TAGAN_data/text_c10"
-classes_file = "mini_TAGAN_data/classes.txt"
+FT_file = "TAGAN_data/cc.en.300.bin"
+img_files = "TAGAN_data/images"
+caption_files = "TAGAN_data/text_c10"
+classes_file = "TAGAN_data/classes.txt"
 
 class ImgCaptionData(data.Dataset):
 
@@ -103,6 +103,7 @@ class ImgCaptionData(data.Dataset):
         #This line was in the original code, but I'm not totally sure what the point is...
         #output = torch.stack(output)
 
+        #torch.save(tensor, 'caption_embeddings.pt')
         return output
 
     def __len__(self):

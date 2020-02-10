@@ -42,7 +42,7 @@ def parse_args():
                         help='name of file containing list of bird classes')
     parser.add_argument('--cuda', action='store_true', default=False,
                         help='enables CUDA training')
-    parser.add_argument('--data', type=str, default='mini_TAGAN_data',
+    parser.add_argument('--data', type=str, default='TAGAN_data',
                         help='folder of data to use')
     parser.add_argument('--epochs', type=int, default=10,
                         help='number of epochs to train for')
@@ -167,8 +167,8 @@ def train(G, epoch, loader, optimizer, val=False):
         conditional_logits_real = D(img, text)
         #Left off here
         #TODO: conditional_logits_mismatch and uncoditional_logits_fake
-        
-        
+
+
         # text = batch[1].to(kwargs['device'])
         text_mismatch = txt_batch[1]
         #TODO: 'text' should potentially be 'embedding' instead (and batch[2])
