@@ -25,6 +25,7 @@ import torch.utils.data as data
 
 from data import ImgCaptionData
 from model import Generator
+from model import Discriminator
 
 # from models import Generator
 

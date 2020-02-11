@@ -52,8 +52,8 @@ class Generator(nn.Module):
     def __init__(self, **kwargs):
         super(Generator, self).__init__()
         # TODO: needs to fix this kwargs as well
-        self.img_rep_channels = 512
-        #self.img_rep_channels = kwargs["img_rep_dim"]
+        #self.img_rep_channels = 512
+        self.img_rep_channels = kwargs["img_rep_dim"]
         self.text_embed_size = kwargs["text_rep_dim"]
 
 
@@ -177,7 +177,7 @@ class Discriminator(nn.Module):
     def __init__(self, **kwargs):
         super(Discriminator, self).__init__()
         #Batch size from kwargs
-        self.batch_size = kwargs["batch_size"]
+        self.batch_size = kwargs["bsize"]
 
         class ImageEncoder(nn.Module):
             def __init__(self, **kwargs):
@@ -189,17 +189,17 @@ class Discriminator(nn.Module):
                 nn.Conv2d(64, 128, 4, 2, padding=1, bias=False),
                 nn.BatchNorm2d(128),
                 nn.LeakyReLU(negative_slope=0.2, inplace=False),
-                n.Conv2d(128, 256, 4, 2, padding=1, bias=False),
+                nn.Conv2d(128, 256, 4, 2, padding=1, bias=False),
                 nn.BatchNorm2d(256),
                 nn.LeakyReLU(negative_slope=0.2, inplace=False)
             )
             self.conv4 = nn.Sequential(
-                n.Conv2d(256, 512, 4, 2, padding=1, bias=False),
+                nn.Conv2d(256, 512, 4, 2, padding=1, bias=False),
                 nn.BatchNorm2d(512),
                 nn.LeakyReLU(negative_slope=0.2, inplace=False)
             )
             self.conv5 = nn.Sequential(
-                n.Conv2d(512, 512, 4, 2, padding=1, bias=False),
+                nn.Conv2d(512, 512, 4, 2, padding=1, bias=False),
                 nn.BatchNorm2d(512),
                 nn.LeakyReLU(negative_slope=0.2, inplace=False)
             )
