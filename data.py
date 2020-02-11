@@ -129,7 +129,7 @@ class ImgCaptionData(data.Dataset):
         value = self.data[index]
         image = Image.open(value['img'])
         image = self.img_transform(image)
-        randIndex = random.randint(0,len(value['caption']));
+        randIndex = random.randint(0,len(value['caption'])-1)
         description = value['caption'][randIndex]
         embedding = value['embedding'][randIndex]
         class_name = value['class_name'][randIndex]

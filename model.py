@@ -178,6 +178,7 @@ class Discriminator(nn.Module):
         super(Discriminator, self).__init__()
         #Batch size from kwargs
         self.batch_size = kwargs["bsize"]
+        self.image_encoder = self.ImageEncoder()
 
         class ImageEncoder(nn.Module):
             def __init__(self, **kwargs):
@@ -250,7 +251,7 @@ class Discriminator(nn.Module):
 
         class textEncoder(nn.Module):
             def __init__(self, **kwargs):
-                    super(textEncoder, self).__init__()
+                super(textEncoder, self).__init__()
 
             # what is the dimension for softmax function
             self.beta_ij = nn.Sequential(
@@ -292,7 +293,6 @@ class Discriminator(nn.Module):
             nn.Softmax(dim=None)
             )
 
-
         #Text encoder for the discriminator.
         self.textEncoderGRU = nn.Sequential(
             nn.GRU(300, 256, bias = False, bidirectional = True)
@@ -308,7 +308,8 @@ class Discriminator(nn.Module):
         img_feats = []
         img_feat = img
         for gap_layer in range(3,6):
-            img_feat = ImageEncoder(gap_layer, img_feat)
+            img_feat = self.image_encoder
+            img = img_feat(gap_layer, img_feat)
             img_feats.append(img_feat)
 
         # Unconditional discriminator

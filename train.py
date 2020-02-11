@@ -155,10 +155,10 @@ def make_model_dir(out_dir):
         os.makedirs(os.path.join(out_dir, model_id))
     return model_id, os.path.join(out_dir, model_id)
 
-def train(G, D, epoch, loader, G_optim, D_optim, val=False):
+def train(G, D, epoch, loader, txt_loader, G_optim, D_optim, val=False):
     """ Train (or validate) models for a single epoch.
     """
-    val = optimizer == None
+    val = D_optim == None or G_optim == None
     # train_loader.init_epoch()
     # pbar = tqdm(total=len(train_loader))
     # Sets model in training mode
@@ -172,14 +172,12 @@ def train(G, D, epoch, loader, G_optim, D_optim, val=False):
         img = batch[0].to(kwargs['device'])
         # Need to instantiate the loss fn - it's an object, not a function
         loss_fn = nn.CrossEntropyLoss()
-        target = torch.ones([batch_size]).double()
+        target = torch.ones([kwargs["bsize"]]).double()
         unconditional_logits_real = D(img)
         unconditional_loss_real = loss_fn(unconditional_logits_real, target)
         text = batch[1]
         conditional_logits_real = D(img, text)
         conditional_loss_real = loss_fn(conditional_logits_real, target)
-        #Left off here
-        #TODO: conditional_logits_mismatch and uncoditional_logits_fake
         text_mismatch = txt_batch[1]
         conditional_logits_mismatch = D(img, text_mismatch)
         target = 1-target
@@ -236,6 +234,11 @@ if __name__ == "__main__":
     train_loader = data.DataLoader(train_data,
                                    batch_size=args.bsize,
                                    shuffle=True)
+    
+    txt_data = ImgCaptionData(**kwargs)
+    txt_loader = data.DataLoader(txt_data,
+                                   batch_size=args.bsize,
+                                   shuffle=True)
     # train_loader = [(0, 0)]
 
     # val_data = ???
@@ -259,7 +262,7 @@ if __name__ == "__main__":
         optim_D = optim.Adam(D.parameters(),
                              lr=0.002,
                              betas=[args.momentum, args.square_momentum])
-        avg_train_loss = train(G, D, epoch, train_loader, optim_G, optim_D)
+        avg_train_loss = train(G, D, epoch, train_loader, txt_loader, optim_G, optim_D)
         losses[epoch][0] = avg_train_loss
 
         # test generator
