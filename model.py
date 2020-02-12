@@ -314,7 +314,7 @@ class Discriminator(nn.Module):
 
         # Unconditional discriminator
         if txt is None:
-            return self.unconditional(img_feats)
+            return self.unconditional(img_feats[-1])
 
         # Conditional discriminator
         txt_representation = self.textEncoderGRU(txt)
