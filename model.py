@@ -198,23 +198,39 @@ class Discriminator(nn.Module):
 
             self.conv123 = nn.Sequential(
                 nn.Conv2d(3, 64, 4, 2, padding=1, bias=False),
-                nn.LeakyReLU(negative_slope=0.2, inplace=False),
+                nn.LeakyReLU(negative_slope=0.2, inplace=True),
                 nn.Conv2d(64, 128, 4, 2, padding=1, bias=False),
                 nn.BatchNorm2d(128),
-                nn.LeakyReLU(negative_slope=0.2, inplace=False),
+                nn.LeakyReLU(negative_slope=0.2, inplace=True),
                 nn.Conv2d(128, 256, 4, 2, padding=1, bias=False),
                 nn.BatchNorm2d(256),
-                nn.LeakyReLU(negative_slope=0.2, inplace=False)
+                nn.LeakyReLU(negative_slope=0.2, inplace=True)
             )
             self.conv4 = nn.Sequential(
                 nn.Conv2d(256, 512, 4, 2, padding=1, bias=False),
                 nn.BatchNorm2d(512),
-                nn.LeakyReLU(negative_slope=0.2, inplace=False)
+                nn.LeakyReLU(negative_slope=0.2, inplace=True)
             )
             self.conv5 = nn.Sequential(
                 nn.Conv2d(512, 512, 4, 2, padding=1, bias=False),
                 nn.BatchNorm2d(512),
-                nn.LeakyReLU(negative_slope=0.2, inplace=False)
+                nn.LeakyReLU(negative_slope=0.2, inplace=True)
+            )
+
+            self.gap1 = nn.Sequential(
+                nn.Conv2d(256, 256, 3, padding=1, bias=False),
+                nn.BatchNorm2d(256),
+                nn.LeakyReLU(0.2, inplace=True)
+            )
+            self.gap2 = nn.Sequential(
+                nn.Conv2d(512, 512, 3, padding=1, bias=False),
+                nn.BatchNorm2d(512),
+                nn.LeakyReLU(0.2, inplace=True)
+            )
+            self.gap3 = nn.Sequential(
+                nn.Conv2d(512, 512, 3, padding=1, bias=False),
+                nn.BatchNorm2d(512),
+                nn.LeakyReLU(0.2, inplace=True)
             )
 
         #forward function for ImageEncoder
@@ -226,12 +242,15 @@ class Discriminator(nn.Module):
             assert gap_layer in range(3,6), "gap_layer must be 3, 4, or 5"
             img = self.conv123(img)
             if gap_layer == 3:
-                return nn.AvgPool2d(16, stride=None, padding=0).forward(img)
+                return self.gap1(img)
+                # return nn.AvgPool2d(16, stride=None, padding=0).forward(img)
             img = self.conv4(img)
             if gap_layer == 4:
-                return nn.AvgPool2d(8, stride=None, padding=0).forward(img)
+                return self.gap2(img)
+                # return nn.AvgPool2d(8, stride=None, padding=0).forward(img)
             img = self.conv5(img)
-            return nn.AvgPool2d(4, stride=None, padding=0).forward(img)
+            return self.gap3(img)
+            # return nn.AvgPool2d(4, stride=None, padding=0).forward(img)
 
 
         class Conditional(nn.Module):
@@ -314,6 +333,9 @@ class Discriminator(nn.Module):
 
         # Unconditional discriminator
         if txt is None:
+            print(img_feats[-1][0].unsqueeze(0).size())
+            #unconditional wants a 4-dimensional weight 1 512 4 4, which means it wants only one image instead of a b
+            #batch of 64
             return self.unconditional(img_feats[-1])
 
         # Conditional discriminator
