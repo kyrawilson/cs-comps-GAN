@@ -79,7 +79,8 @@ class ImgCaptionData(data.Dataset):
                 captions = os.listdir(os.path.join(caption_files,class_name))
                 for caption in captions:
                     image_path = os.path.join(img_files, class_name, caption.replace("txt", "jpg"))
-                    caption_path = os.path.join(caption_files, class_name, caption)
+                    # caption_path = os.path.join(caption_files, class_name, caption)
+                    caption_path = '{}/{}/{}'.format(caption_files, class_name, caption)
 
                     if not(caption_path.startswith("._")):
                         with open(caption_path) as f2:

@@ -20,7 +20,7 @@ class ResidualBlock(nn.Module):
     '''
 
     def __init__(self, **kwargs):
-        super(ResidualBlock,self).__init__()
+        super().__init__()
         # Needs to be fixed though I do not know why because it's in kwargs
         self.img_rep_channels = 512
         #self.img_rep_channels = kwargs["img_rep_dim"]
@@ -50,7 +50,7 @@ class ResidualBlock(nn.Module):
 
 class Generator(nn.Module):
     def __init__(self, **kwargs):
-        super(Generator, self).__init__()
+        super().__init__()
         # TODO: needs to fix this kwargs as well
         #self.img_rep_channels = 512
         self.img_rep_channels = kwargs["img_rep_dim"]
@@ -175,14 +175,26 @@ class Generator(nn.Module):
 
 class Discriminator(nn.Module):
     def __init__(self, **kwargs):
-        super(Discriminator, self).__init__()
+        super().__init__()
         #Batch size from kwargs
         self.batch_size = kwargs["bsize"]
         self.image_encoder = self.ImageEncoder()
 
-        class ImageEncoder(nn.Module):
-            def __init__(self, **kwargs):
-                super(ImageEncoder, self).__init__()
+        #Calls the Unconditional discrimantor
+        # Input is an image with no text
+        self.unconditional = nn.Sequential(
+            nn.Conv2d(512, 1, 4, 0, padding=1, bias=False),
+            nn.Softmax(dim=None)
+            )
+
+        #Text encoder for the discriminator.
+        self.textEncoderGRU = nn.Sequential(
+            nn.GRU(300, 256, bias = False, bidirectional = True)
+        )
+
+    class ImageEncoder(nn.Module):
+        def __init__(self, **kwargs):
+            super().__init__()
 
             self.conv123 = nn.Sequential(
                 nn.Conv2d(3, 64, 4, 2, padding=1, bias=False),
@@ -205,26 +217,26 @@ class Discriminator(nn.Module):
                 nn.LeakyReLU(negative_slope=0.2, inplace=False)
             )
 
-            #forward function for ImageEncoder
-            def forward(self, gap_layer, img):
-                '''
-                gap_layer: int (3, 4, or 5), layer after which to output GAP
-                img: shape(batch size, width, height, num channels)
-                '''
-                assert gap_layer in range(3,6), "gap_layer must be 3, 4, or 5"
-                img = self.conv123(img)
-                if gap_layer == 3:
-                    return nn.AvgPool2d(16, stride=None, padding=0).forward(img)
-                img = self.conv4(img)
-                if gap_layer == 4:
-                    return nn.AvgPool2d(8, stride=None, padding=0).forward(img)
-                img = self.conv5(img)
-                return nn.AvgPool2d(4, stride=None, padding=0).forward(img)
+        #forward function for ImageEncoder
+        def forward(self, gap_layer, img):
+            '''
+            gap_layer: int (3, 4, or 5), layer after which to output GAP
+            img: shape(batch size, width, height, num channels)
+            '''
+            assert gap_layer in range(3,6), "gap_layer must be 3, 4, or 5"
+            img = self.conv123(img)
+            if gap_layer == 3:
+                return nn.AvgPool2d(16, stride=None, padding=0).forward(img)
+            img = self.conv4(img)
+            if gap_layer == 4:
+                return nn.AvgPool2d(8, stride=None, padding=0).forward(img)
+            img = self.conv5(img)
+            return nn.AvgPool2d(4, stride=None, padding=0).forward(img)
 
 
         class Conditional(nn.Module):
             def __init__(self, **kwargs):
-                super(Conditional, self).__init__()
+                super().__init__()
 
             #forward function for Conditional
             def forward(self, alphas, betas, local_results):
@@ -251,18 +263,20 @@ class Discriminator(nn.Module):
 
         class textEncoder(nn.Module):
             def __init__(self, **kwargs):
-                super(textEncoder, self).__init__()
+                super().__init__()
 
-            # what is the dimension for softmax function
-            self.beta_ij = nn.Sequential(
-                nn.Linear(512, 3),
-                nn.Softmax(dim=None)
-            )
-            #output size=1
-            self.alpha = nn.Softmax(dim=1)
-            self.weight = nn.Linear(512, 1, bias=False)
-            self.bias = nn.Linear(512, 1, bias=True)
-            self.local_dis = nn.Sigmoid()
+                # what is the dimension for softmax function
+                self.beta_ij = nn.Sequential(
+                    nn.Linear(512, 3),
+                    nn.Softmax(dim=None)
+                )
+                #output size=1
+                self.alpha = nn.Softmax(dim=1)
+                self.weight = nn.Linear(512, 1, bias=False)
+                self.bias = nn.Linear(512, 1, bias=True)
+                self.local_dis = nn.Sigmoid()
+
+
 
             #forward function for textEncoder
             #Can't remember commenting guidelines so it's just going here and we can change later
@@ -286,18 +300,6 @@ class Discriminator(nn.Module):
 
                 return local_discriminator
 
-        #Calls the Unconditional discrimantor
-        # Input is an image with no text
-        self.unconditional = nn.Sequential(
-            nn.Conv2d(512, 1, 4, 0, padding=1, bias=False),
-            nn.Softmax(dim=None)
-            )
-
-        #Text encoder for the discriminator.
-        self.textEncoderGRU = nn.Sequential(
-            nn.GRU(300, 256, bias = False, bidirectional = True)
-        )
-
     #forward function for Discriminator
     def forward(self, img, txt=None):
         ''' Image encoder
@@ -306,10 +308,8 @@ class Discriminator(nn.Module):
         '''
         batch_size = len(img)
         img_feats = []
-        img_feat = img
         for gap_layer in range(3,6):
-            img_feat = self.image_encoder
-            img = img_feat(gap_layer, img_feat)
+            img_feat = self.image_encoder(gap_layer, img)
             img_feats.append(img_feat)
 
         # Unconditional discriminator
