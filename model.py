@@ -182,8 +182,10 @@ class Discriminator(nn.Module):
 
         #Calls the Unconditional discrimantor
         # Input is an image with no text
+        # XXX the fourth argument in the conv2d instantiation (namely, stride) should be 0
+        # BUT torch doesn't let you have 0 stride! the authors are full of it :P
         self.unconditional = nn.Sequential(
-            nn.Conv2d(512, 1, 4, 0, padding=1, bias=False),
+            nn.Conv2d(512, 1, 4, 1, padding=1, bias=False),
             nn.Softmax(dim=None)
             )
 
@@ -220,26 +222,31 @@ class Discriminator(nn.Module):
             self.gap1 = nn.Sequential(
                 nn.Conv2d(256, 256, 3, padding=1, bias=False),
                 nn.BatchNorm2d(256),
-                nn.LeakyReLU(0.2, inplace=True)
+                nn.LeakyReLU(0.2, inplace=True),
+                nn.AvgPool2d(16, stride=None, padding=0)
             )
             self.gap2 = nn.Sequential(
                 nn.Conv2d(512, 512, 3, padding=1, bias=False),
                 nn.BatchNorm2d(512),
-                nn.LeakyReLU(0.2, inplace=True)
+                nn.LeakyReLU(0.2, inplace=True),
+                nn.AvgPool2d(8, stride=None, padding=0)
             )
             self.gap3 = nn.Sequential(
                 nn.Conv2d(512, 512, 3, padding=1, bias=False),
                 nn.BatchNorm2d(512),
-                nn.LeakyReLU(0.2, inplace=True)
+                nn.LeakyReLU(0.2, inplace=True),
+                nn.AvgPool2d(4, stride=None, padding=0)
             )
 
         #forward function for ImageEncoder
         def forward(self, gap_layer, img):
             '''
             gap_layer: int (3, 4, or 5), layer after which to output GAP
+                If gap_layer is set to -1, then don't do GAP, and output normal
+                result after last conv layer
             img: shape(batch size, width, height, num channels)
             '''
-            assert gap_layer in range(3,6), "gap_layer must be 3, 4, or 5"
+            assert gap_layer in [-1, 3, 4, 5], "gap_layer must be -1, 3, 4, or 5"
             img = self.conv123(img)
             if gap_layer == 3:
                 return self.gap1(img)
@@ -249,7 +256,10 @@ class Discriminator(nn.Module):
                 return self.gap2(img)
                 # return nn.AvgPool2d(8, stride=None, padding=0).forward(img)
             img = self.conv5(img)
-            return self.gap3(img)
+            if gap_layer == 5:
+                return self.gap3(img)
+            # gap_layer is -1, so return the overall unGAP'ed result
+            return img
             # return nn.AvgPool2d(4, stride=None, padding=0).forward(img)
 
 
@@ -326,17 +336,14 @@ class Discriminator(nn.Module):
         text encoder(batch_size, num_words, embedding_size)
         '''
         batch_size = len(img)
-        img_feats = []
-        for gap_layer in range(3,6):
-            img_feat = self.image_encoder(gap_layer, img)
-            img_feats.append(img_feat)
-
         # Unconditional discriminator
         if txt is None:
-            print(img_feats[-1][0].unsqueeze(0).size())
+            # print(img_feats[-1][0].unsqueeze(0).size())
             #unconditional wants a 4-dimensional weight 1 512 4 4, which means it wants only one image instead of a b
             #batch of 64
-            return self.unconditional(img_feats[-1])
+            # Get unGAP'ed image encoding (thus using -1 as GAP layer)
+            img_feat = self.image_encoder(-1, img)
+            return self.unconditional(img_feat)
 
         # Conditional discriminator
         txt_representation = self.textEncoderGRU(txt)
@@ -377,6 +384,12 @@ class Discriminator(nn.Module):
                     beta = self.beta(w_i)
                     betas[i][count][j] = beta
                 count+= 1
+
+        # Get GAP'ed image encodings for conditional discriminator (local discriminators)
+        img_feats = []
+        for gap_layer in [3, 4, 5]:
+            img_feat = self.image_encoder(gap_layer, img)
+            img_feats.append(img_feat)
 
         for i in range(batch_size):
             for j in range(3):

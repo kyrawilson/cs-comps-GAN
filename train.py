@@ -174,8 +174,9 @@ def train(G, D, epoch, loader, txt_loader, G_optim, D_optim, val=False):
         img = batch[0].to(kwargs['device'])
         # Need to instantiate the loss fn - it's an object, not a function
         loss_fn = nn.CrossEntropyLoss()
-        target = torch.ones([kwargs["bsize"]]).double()
+        target = torch.ones([kwargs["bsize"]]).long()
         unconditional_logits_real = D(img)
+        breakpoint()
         unconditional_loss_real = loss_fn(unconditional_logits_real, target)
         text = batch[1]
         conditional_logits_real = D(img, text)
