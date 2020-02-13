@@ -346,8 +346,8 @@ class Discriminator(nn.Module):
             return self.unconditional(img_feat).squeeze()
 
         # Conditional discriminator
+        # TODO: cannot encode text like this, giving error right now
         txt_representation = self.textEncoderGRU(txt)
-
 
         #alphas
         #txt_representation will relate to text encoder
@@ -393,11 +393,11 @@ class Discriminator(nn.Module):
 
         for i in range(batch_size):
             for j in range(3):
-                local_result = textEncoder(txt, img_feats[j])
+                local_result = Discriminator.textEncoder(txt, img_feats[j])
                 local_results[i] = local_result
-
-
 
             # local_results dimensiont: bsize in kwargs, txt length, 3
 
-        weight_prod = Conditional(alphas, betas, local_results)
+        weight_prod = Discriminator.Conditional(alphas, betas, local_results)
+        return weight_prod
+

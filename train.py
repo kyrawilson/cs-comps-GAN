@@ -176,17 +176,22 @@ def train(G, D, epoch, loader, txt_loader, G_optim, D_optim, val=False):
         loss_fn = nn.CrossEntropyLoss()
         target = torch.ones([kwargs["bsize"]]).long()
         unconditional_logits_real = D(img)
-        unconditional_loss_real = loss_fn(unconditional_logits_real, target)
+        unconditional_loss_real = unconditional_logits_real.sum(0)
+        # TODO for Will: Double check whether needs to be subtracted from 1
+        # unconditional_loss_real = loss_fn(unconditional_logits_real, target)
         text = batch[1]
         conditional_logits_real = D(img, text)
-        conditional_loss_real = loss_fn(conditional_logits_real, target)
+        conditional_loss_real = conditional_logits_real.sum(0)
+        # conditional_loss_real = loss_fn(conditional_logits_real, target)
         text_mismatch = txt_batch[1]
         conditional_logits_mismatch = D(img, text_mismatch)
         target = 1-target
-        conditional_loss_mismatch = loss_fn(conditional_logits_mismatch, target)
+        conditional_loss_mismatch = 1 - conditional_logits_real.sum(0)
+        # conditional_loss_mismatch = loss_fn(conditional_logits_mismatch, target)
         fake = G(img, text_mismatch)
         unconditional_logits_fake = D(fake)
-        unconditional_loss_fake = loss_fn(unconditional_logits_fake, target)
+        unconditional_loss_fake = 1 - unconditional_logits_fake.sum(0)
+        # unconditional_loss_fake = loss_fn(unconditional_logits_fake, target)
         loss_D = unconditional_loss_real + unconditional_loss_fake + \
                 kwargs['conditional_weight']*(conditional_loss_real + conditional_loss_mismatch)
         if not val:
@@ -197,9 +202,11 @@ def train(G, D, epoch, loader, txt_loader, G_optim, D_optim, val=False):
         #Maybe mix up mismatching text at some point during the training?
         ### Get generator's loss
         target = 1-target
-        unconditional_loss_fake = loss_fn(unconditional_logits_fake, target)
+        unconditional_loss_fake = unconditional_logits_fake.sum(0)
+        # unconditional_loss_fake = loss_fn(unconditional_logits_fake, target)
         conditional_logits_fake = D(fake, text_mismatch)
-        conditional_loss_fake = loss_fn(conditional_logits_fake, target)
+        conditional_loss_fake = conditional_logits_fake.sum(0)
+        # conditional_loss_fake = loss_fn(conditional_logits_fake, target)
         # Measures dissimilarity between decoded image and input
         l2_fn = nn.MSELoss()
         reconstructive_loss = l2_fn(fake, img)
