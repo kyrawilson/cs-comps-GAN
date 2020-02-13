@@ -185,8 +185,8 @@ class Discriminator(nn.Module):
         # XXX the fourth argument in the conv2d instantiation (namely, stride) should be 0
         # BUT torch doesn't let you have 0 stride! the authors are full of it :P
         self.unconditional = nn.Sequential(
-            nn.Conv2d(512, 1, 4, 1, padding=1, bias=False),
-            nn.Softmax(dim=None)
+            nn.Conv2d(512, 1, 4, 1, padding=0, bias=False),
+            nn.Sigmoid()
             )
 
         #Text encoder for the discriminator.
@@ -343,7 +343,7 @@ class Discriminator(nn.Module):
             #batch of 64
             # Get unGAP'ed image encoding (thus using -1 as GAP layer)
             img_feat = self.image_encoder(-1, img)
-            return self.unconditional(img_feat)
+            return self.unconditional(img_feat).squeeze()
 
         # Conditional discriminator
         txt_representation = self.textEncoderGRU(txt)

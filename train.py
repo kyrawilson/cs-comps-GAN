@@ -176,7 +176,6 @@ def train(G, D, epoch, loader, txt_loader, G_optim, D_optim, val=False):
         loss_fn = nn.CrossEntropyLoss()
         target = torch.ones([kwargs["bsize"]]).long()
         unconditional_logits_real = D(img)
-        breakpoint()
         unconditional_loss_real = loss_fn(unconditional_logits_real, target)
         text = batch[1]
         conditional_logits_real = D(img, text)
