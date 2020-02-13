@@ -195,6 +195,15 @@ class Discriminator(nn.Module):
         self.textEncoderGRU = nn.Sequential(
             nn.GRU(300, 256, bias = False, bidirectional = True, batch_first=True)
         )
+        self.beta_ij = nn.Sequential(
+            nn.Linear(512, 3),
+            nn.Softmax(dim=None)
+        )
+        # output size=1
+        self.alpha = nn.Softmax(dim=1)
+        self.weight = nn.Linear(512, 1, bias=False)
+        self.bias = nn.Linear(512, 1, bias=True)
+        self.local_dis = nn.Sigmoid()
 
     class ImageEncoder(nn.Module):
         def __init__(self, **kwargs):
@@ -252,17 +261,14 @@ class Discriminator(nn.Module):
             img = self.conv123(img)
             if gap_layer == 3:
                 return self.gap1(img)
-                # return nn.AvgPool2d(16, stride=None, padding=0).forward(img)
             img = self.conv4(img)
             if gap_layer == 4:
                 return self.gap2(img)
-                # return nn.AvgPool2d(8, stride=None, padding=0).forward(img)
             img = self.conv5(img)
             if gap_layer == 5:
                 return self.gap3(img)
             # gap_layer is -1, so return the overall unGAP'ed result
             return img
-            # return nn.AvgPool2d(4, stride=None, padding=0).forward(img)
 
 
         class Conditional(nn.Module):
@@ -348,7 +354,6 @@ class Discriminator(nn.Module):
             return self.unconditional(img_feat).squeeze()
 
         # Conditional discriminator
-        # TODO: cannot encode text like this, giving error right now
 
         # Throw away the second output of the GRU - it's just stuff from the last elt of the sequence
         txt_representation, _ = self.textEncoderGRU(txt)
@@ -368,15 +373,17 @@ class Discriminator(nn.Module):
         # Have to call contiguous() because torch is weird :P
         txt_representation = txt_representation.contiguous().view(-1, represenation_size)
         txt_representation = txt_representation.unsqueeze(1)
-
-        tmp_average = tmp_average.expand(txt_representation.shape[0], tmp_average.shape[1])
+        tmp_average = tmp_average.view(-1,1).repeat(1, int(txt_representation.shape[0] / tmp_average.shape[0])).view(-1,tmp_average.shape[1])
+        # tmp_average = tmp_average.expand(txt_representation.shape[0], tmp_average.shape[1])
+        # Now I fix this by repeating the tensor until the target size
+        # TODO: may need to double check if we want it this way
         tmp_average= tmp_average.unsqueeze(2)
 
         dot_products = torch.bmm(txt_representation, tmp_average)
 
         alphas = torch.zeros(batch_size, len(txt_representation))
         for i in range(batch_size):
-            alpha = self.alpha(dot_products)
+            alpha = self.alpha(dot_products).squeeze()
             alphas[i] = alpha
 
         betas = torch.zeros(batch_size, len(txt_representation), 3)
@@ -385,10 +392,9 @@ class Discriminator(nn.Module):
         count = 0
         for i in range(batch_size):
             for w_i in txt_representation:
-                for j in range(3):
-                    beta = self.beta(w_i)
-                    betas[i][count][j] = beta
-                count+= 1
+                beta = self.beta_ij(w_i)
+                betas[i][count] = beta
+            count+= 1
 
         # Get GAP'ed image encodings for conditional discriminator (local discriminators)
         img_feats = []
