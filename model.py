@@ -205,6 +205,8 @@ class Discriminator(nn.Module):
         self.bias = nn.Linear(512, 1, bias=True)
         self.local_dis = nn.Sigmoid()
 
+        self.text_encoder = self.textEncoder()
+
     class ImageEncoder(nn.Module):
         def __init__(self, **kwargs):
             super().__init__()
@@ -271,71 +273,79 @@ class Discriminator(nn.Module):
             return img
 
 
-        class Conditional(nn.Module):
-            def __init__(self, **kwargs):
-                super().__init__()
+    class Conditional(nn.Module):
+        def __init__(self, **kwargs):
+            super().__init__()
 
-            #forward function for Conditional
-            def forward(self, alphas, betas, local_results):
-                '''
-                alphas: (batch_size, num_words)
-                betas: (batch_size, num_words, 3)
-                local_results: (batch_size, num_words, 3)
-                '''
+        #forward function for Conditional
+        def forward(self, alphas, betas, local_results):
+            '''
+            alphas: (batch_size, num_words)
+            betas: (batch_size, num_words, 3)
+            local_results: (batch_size, num_words, 3)
+            '''
 
-                # Add together last dimension of local results with betas
-                n_words = local_results.shape[1]
-                local_results_long = local_results.view(-1, 3)
-                local_results_long = local_results_long.unsqueeze(2)
-                betas_long = betas.view(-1, 3)
-                betas_long = betas_long.unsqueeze(1)
-                weighted_sum = torch.bmm(local_results_long, betas_long).squeeze()
-                weighted_sum = weighted_sum.view(-1, n_words)
-                # Multiply together second dimension of local results with alphas
-                # First raise weighted sums to alphas
-                weighted_prod = torch.pow(weighted_sum, alphas)
-                weighted_prod = torch.prod(weighted_prod)
-                return weighted_prod
-                # In discriminator write the alpha and beta classes.
+            # Add together last dimension of local results with betas
+            n_words = local_results.shape[1]
+            local_results_long = local_results.view(-1, 3)
+            local_results_long = local_results_long.unsqueeze(2)
+            betas_long = betas.view(-1, 3)
+            betas_long = betas_long.unsqueeze(1)
+            weighted_sum = torch.bmm(local_results_long, betas_long).squeeze()
+            weighted_sum = weighted_sum.view(-1, n_words)
+            # Multiply together second dimension of local results with alphas
+            # First raise weighted sums to alphas
+            weighted_prod = torch.pow(weighted_sum, alphas)
+            weighted_prod = torch.prod(weighted_prod)
+            return weighted_prod
+            # In discriminator write the alpha and beta classes.
 
-        class textEncoder(nn.Module):
-            def __init__(self, **kwargs):
-                super().__init__()
+    class textEncoder(nn.Module):
+        def __init__(self, **kwargs):
+            super().__init__()
 
-                # what is the dimension for softmax function
-                self.beta_ij = nn.Sequential(
-                    nn.Linear(512, 3),
-                    nn.Softmax(dim=None)
-                )
-                #output size=1
-                self.alpha = nn.Softmax(dim=1)
-                self.weight = nn.Linear(512, 1, bias=False)
-                self.bias = nn.Linear(512, 1, bias=True)
-                self.local_dis = nn.Sigmoid()
+            # what is the dimension for softmax function
+            self.beta_ij = nn.Sequential(
+                nn.Linear(512, 3),
+                nn.Softmax(dim=None)
+            )
+            #output size=1
+            self.alpha = nn.Softmax(dim=1)
+            self.weight = nn.Linear(512, 1, bias=False)
+            self.bias = nn.Linear(512, 1, bias=True)
+            self.local_dis = nn.Sigmoid()
 
+            
+            self.textEncoderGRU = nn.Sequential(
+                    nn.GRU(300, 256, bias = False, bidirectional = True, batch_first=True)
+                    )
+        #forward function for textEncoder
+        #Can't remember commenting guidelines so it's just going here and we can change later
+        #Params: txt-# words x 300, img from conv3, conv4, or conv5
+        #Returns: Tensor with "score" for each word in sentence of whether or not it appears in image
+        #Will need to be called after each conv layer, so join individual local_discriminator return tensors at the very end
+        def forward(self,txt, img):
+            
+            print("I am in the forward function of text encoder")
 
+            local_discriminator = torch.zeros(list(txt.size())[0])
+            
+            # Lando's change
+            #Created a new GRU text encoder in this class because there was no other way to call it from discriminator.
+            txt, _ = self.textEncoderGRU(txt)
+            count = 0
+            
+            for w_i in txt:
+                _weight = self.weight(w_i)
+                weight = self.weight.layer.weight.view(-1,1)
+                _bias = self.bias(w_i)
+                bias = self.bias.layer.bias
+                img = img.view(1, len(weight))
+                _local_discriminator = self.local_dis(torch.mm(weight, img) + bias)
+                local_discriminator[count] = _local_discriminator
+                count += 1
 
-            #forward function for textEncoder
-            #Can't remember commenting guidelines so it's just going here and we can change later
-            #Params: txt-# words x 300, img from conv3, conv4, or conv5
-            #Returns: Tensor with "score" for each word in sentence of whether or not it appears in image
-            #Will need to be called after each conv layer, so join individual local_discriminator return tensors at the very end
-            def forward(self, txt, img):
-                local_discriminator = torch.zeros(list(txt.size())[0])
-                txt = Discriminator.textEncoder(txt)
-                count = 0
-
-                for w_i in txt:
-                    _weight = self.weight(w_i)
-                    weight = self.weight.layer.weight.view(-1,1)
-                    _bias = self.bias(w_i)
-                    bias = self.bias.layer.bias
-                    img = img.view(1, len(weight))
-                    _local_discriminator = self.local_dis(torch.mm(weight, img) + bias)
-                    local_discriminator[count] = _local_discriminator
-                    count += 1
-
-                return local_discriminator
+            return local_discriminator
 
     #forward function for Discriminator
     def forward(self, img, txt=None):
@@ -404,11 +414,13 @@ class Discriminator(nn.Module):
 
         for i in range(batch_size):
             for j in range(3):
-                local_result = Discriminator.textEncoder(txt, img_feats[j])
+                print("Tell me something useful")
+                print(self.text_encoder(txt, img_feats[j]))
+                local_result = self.text_encoder(txt, img_feats[j])
                 local_results[i] = local_result
 
             # local_results dimensiont: bsize in kwargs, txt length, 3
-
+        
         weight_prod = Discriminator.Conditional(alphas, betas, local_results)
         return weight_prod
 
