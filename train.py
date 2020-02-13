@@ -174,12 +174,13 @@ def train(G, D, epoch, loader, txt_loader, G_optim, D_optim, val=False):
         img = batch[0].to(kwargs['device'])
         # Need to instantiate the loss fn - it's an object, not a function
         loss_fn = nn.CrossEntropyLoss()
-        target = torch.ones([kwargs["bsize"]]).long()
+        # Not using cross-entropy anymore, so don't need a target dist
+        # target = torch.ones([kwargs["bsize"]]).long()
         unconditional_logits_real = D(img)
         unconditional_loss_real = unconditional_logits_real.sum(0)
         # TODO for Will: Double check whether needs to be subtracted from 1
         # unconditional_loss_real = loss_fn(unconditional_logits_real, target)
-        text = batch[1]
+        text = batch[2]
         conditional_logits_real = D(img, text)
         conditional_loss_real = conditional_logits_real.sum(0)
         # conditional_loss_real = loss_fn(conditional_logits_real, target)

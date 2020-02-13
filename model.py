@@ -184,6 +184,8 @@ class Discriminator(nn.Module):
         # Input is an image with no text
         # XXX the fourth argument in the conv2d instantiation (namely, stride) should be 0
         # BUT torch doesn't let you have 0 stride! the authors are full of it :P
+        # Also, in the supplementary materials, they describe the sigmoid as a softmax, but that doesn't seem to make sense
+
         self.unconditional = nn.Sequential(
             nn.Conv2d(512, 1, 4, 1, padding=0, bias=False),
             nn.Sigmoid()
@@ -191,7 +193,7 @@ class Discriminator(nn.Module):
 
         #Text encoder for the discriminator.
         self.textEncoderGRU = nn.Sequential(
-            nn.GRU(300, 256, bias = False, bidirectional = True)
+            nn.GRU(300, 256, bias = False, bidirectional = True, batch_first=True)
         )
 
     class ImageEncoder(nn.Module):
@@ -347,7 +349,9 @@ class Discriminator(nn.Module):
 
         # Conditional discriminator
         # TODO: cannot encode text like this, giving error right now
-        txt_representation = self.textEncoderGRU(txt)
+
+        # Throw away the second output of the GRU - it's just stuff from the last elt of the sequence
+        txt_representation, _ = self.textEncoderGRU(txt)
 
         #alphas
         #txt_representation will relate to text encoder
@@ -361,7 +365,8 @@ class Discriminator(nn.Module):
         #batch_size, 1, text_repesentation
 
         represenation_size = txt_representation.shape[2]
-        txt_representation = txt_representation.view(-1, represenation_size)
+        # Have to call contiguous() because torch is weird :P
+        txt_representation = txt_representation.contiguous().view(-1, represenation_size)
         txt_representation = txt_representation.unsqueeze(1)
 
         tmp_average = tmp_average.expand(txt_representation.shape[0], tmp_average.shape[1])
