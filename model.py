@@ -337,10 +337,13 @@ class Discriminator(nn.Module):
             
             for w_i in txt:
                 _weight = self.weight(w_i)
-                weight = self.weight.layer.weight.view(-1,1)
+                #weight = self.weight.layer.weight.view(-1,1)
+                weight = _weight.view(-1,1)
                 _bias = self.bias(w_i)
-                bias = self.bias.layer.bias
-                img = img.view(1, len(weight))
+                #bias = self.bias.layer.bias
+                bias = _bias.view(-1,1)
+                print(weight.size(), bias.size(), img.size())
+                img = img.view(len(weight), -1)
                 _local_discriminator = self.local_dis(torch.mm(weight, img) + bias)
                 local_discriminator[count] = _local_discriminator
                 count += 1
