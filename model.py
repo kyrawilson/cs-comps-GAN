@@ -61,7 +61,7 @@ class Generator(nn.Module):
         #input: # of words in description x 300 (number of features in Fasttext embedding)
         #output: caption representation of size 256
 
-        self.textEncoder = nn.Sequential(
+        self.text_encoder = nn.Sequential(
         nn.GRU(300, 256, bias = False, bidirectional = True),
         nn.AvgPool1d(512, 1),
         nn.Linear(512, 256, bias = False),
@@ -146,7 +146,7 @@ class Generator(nn.Module):
         img_feat = self.encoder(img)
 
         #text encoder
-        txt_feat = self.textEncoder(txt)
+        txt_feat = self.text_encoder(txt)
 
         #conditioning augementation of data
         #Create a Gaussian distribution of text features
@@ -192,7 +192,7 @@ class Discriminator(nn.Module):
             )
 
         #Text encoder for the discriminator.
-        self.textEncoderGRU = nn.Sequential(
+        self.text_encoder_GRU = nn.Sequential(
             nn.GRU(300, 256, bias = False, bidirectional = True, batch_first=True)
         )
         self.beta_ij = nn.Sequential(
@@ -205,7 +205,7 @@ class Discriminator(nn.Module):
         self.bias = nn.Linear(512, 1, bias=True)
         self.local_dis = nn.Sigmoid()
 
-        self.text_encoder = self.textEncoder()
+        self.text_encoder = self.TextEncoder()
 
     class ImageEncoder(nn.Module):
         def __init__(self, **kwargs):
@@ -300,7 +300,7 @@ class Discriminator(nn.Module):
             return weighted_prod
             # In discriminator write the alpha and beta classes.
 
-    class textEncoder(nn.Module):
+    class TextEncoder(nn.Module):
         def __init__(self, **kwargs):
             super().__init__()
 
@@ -316,37 +316,43 @@ class Discriminator(nn.Module):
             self.local_dis = nn.Sigmoid()
 
             
-            self.textEncoderGRU = nn.Sequential(
+            self.text_encoder_GRU = nn.Sequential(
                     nn.GRU(300, 256, bias = False, bidirectional = True, batch_first=True)
                     )
-        #forward function for textEncoder
+        #forward function for TextEncoder
         #Can't remember commenting guidelines so it's just going here and we can change later
         #Params: txt-# words x 300, img from conv3, conv4, or conv5
         #Returns: Tensor with "score" for each word in sentence of whether or not it appears in image
         #Will need to be called after each conv layer, so join individual local_discriminator return tensors at the very end
-        def forward(self,txt, img):
-            
-            print("I am in the forward function of text encoder")
+        def forward(self, txt, img):
+            ''' 
+            Params: txt-# words x 300;
+                img from conv3, conv4, or conv5
 
+            Returns: Tensor with "score" for each word in sentence of whether or not it appears in image
+            Will need to be called after each conv layer, so join individual local_discriminator return tensors at the very end
+            '''
+            
             local_discriminator = torch.zeros(list(txt.size())[0])
             
             # Lando's change
             #Created a new GRU text encoder in this class because there was no other way to call it from discriminator.
-            txt, _ = self.textEncoderGRU(txt)
+            txt, _ = self.text_encoder_GRU(txt)
             count = 0
             
-            for w_i in txt:
-                _weight = self.weight(w_i)
-                #weight = self.weight.layer.weight.view(-1,1)
-                weight = _weight.view(-1,1)
-                _bias = self.bias(w_i)
-                #bias = self.bias.layer.bias
-                bias = _bias.view(-1,1)
-                print(weight.size(), bias.size(), img.size())
-                img = img.view(len(weight), -1)
-                _local_discriminator = self.local_dis(torch.mm(weight, img) + bias)
-                local_discriminator[count] = _local_discriminator
-                count += 1
+            # for w_i in txt:
+            breakpoint()
+            _weight = self.weight(txt)
+            #weight = self.weight.layer.weight.view(-1,1)
+            weight = _weight.view(-1,1)
+            _bias = self.bias(txt)
+            #bias = self.bias.layer.bias
+            bias = _bias.view(-1,1)
+            print(weight.size(), bias.size(), img.size())
+            img = img.view(len(weight), -1)
+            _local_discriminator = self.local_dis(torch.bmm(weight, img) + bias)
+            local_discriminator[count] = _local_discriminator
+            count += 1
 
             return local_discriminator
 
@@ -369,7 +375,7 @@ class Discriminator(nn.Module):
         # Conditional discriminator
 
         # Throw away the second output of the GRU - it's just stuff from the last elt of the sequence
-        txt_representation, _ = self.textEncoderGRU(txt)
+        txt_representation, _ = self.text_encoder_GRU(txt)
 
         #alphas
         #txt_representation will relate to text encoder
@@ -417,7 +423,6 @@ class Discriminator(nn.Module):
 
         for i in range(batch_size):
             for j in range(3):
-                print("Tell me something useful")
                 print(self.text_encoder(txt, img_feats[j]))
                 local_result = self.text_encoder(txt, img_feats[j])
                 local_results[i] = local_result
