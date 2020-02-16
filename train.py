@@ -184,9 +184,9 @@ def train(G, D, epoch, loader, txt_loader, G_optim, D_optim, val=False):
         conditional_logits_real = D(img, text)
         conditional_loss_real = conditional_logits_real.sum(0)
         # conditional_loss_real = loss_fn(conditional_logits_real, target)
-        text_mismatch = txt_batch[1]
+        text_mismatch = txt_batch[2]
+        breakpoint()
         conditional_logits_mismatch = D(img, text_mismatch)
-        target = 1-target
         conditional_loss_mismatch = 1 - conditional_logits_real.sum(0)
         # conditional_loss_mismatch = loss_fn(conditional_logits_mismatch, target)
         fake = G(img, text_mismatch)
@@ -202,7 +202,6 @@ def train(G, D, epoch, loader, txt_loader, G_optim, D_optim, val=False):
         #TODO: 'text' should potentially be 'embedding' instead (and batch[2])
         #Maybe mix up mismatching text at some point during the training?
         ### Get generator's loss
-        target = 1-target
         unconditional_loss_fake = unconditional_logits_fake.sum(0)
         # unconditional_loss_fake = loss_fn(unconditional_logits_fake, target)
         conditional_logits_fake = D(fake, text_mismatch)

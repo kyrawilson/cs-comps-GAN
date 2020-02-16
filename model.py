@@ -191,21 +191,25 @@ class Discriminator(nn.Module):
             nn.Sigmoid()
             )
 
+        self.conditional = self.Conditional()
+
         #Text encoder for the discriminator.
         self.text_encoder_GRU = nn.Sequential(
             nn.GRU(300, 256, bias = False, bidirectional = True, batch_first=True)
         )
-        self.beta_ij = nn.Sequential(
+        self.beta = nn.Sequential(
             nn.Linear(512, 3),
-            nn.Softmax(dim=None)
+            nn.Softmax(dim=2)
         )
         # output size=1
         self.alpha = nn.Softmax(dim=1)
-        self.weight = nn.Linear(512, 1, bias=False)
-        self.bias = nn.Linear(512, 1, bias=True)
-        self.local_dis = nn.Sigmoid()
+        self.LD_weights = [nn.Linear(512, 256, bias=False),
+                            nn.Linear(512, 512, bias=False),
+                            nn.Linear(512, 512, bias=False)]
+        self.LD_biases = [nn.Linear(512, 1, bias=True),
+                            nn.Linear(512, 1, bias=True),
+                            nn.Linear(512, 1, bias=True)]
 
-        self.text_encoder = self.TextEncoder()
 
     class ImageEncoder(nn.Module):
         def __init__(self, **kwargs):
@@ -262,13 +266,13 @@ class Discriminator(nn.Module):
             assert gap_layer in [-1, 3, 4, 5], "gap_layer must be -1, 3, 4, or 5"
             img = self.conv123(img)
             if gap_layer == 3:
-                return self.gap1(img)
+                return self.gap1(img).squeeze()
             img = self.conv4(img)
             if gap_layer == 4:
-                return self.gap2(img)
+                return self.gap2(img).squeeze()
             img = self.conv5(img)
             if gap_layer == 5:
-                return self.gap3(img)
+                return self.gap3(img).squeeze()
             # gap_layer is -1, so return the overall unGAP'ed result
             return img
 
@@ -276,6 +280,7 @@ class Discriminator(nn.Module):
     class Conditional(nn.Module):
         def __init__(self, **kwargs):
             super().__init__()
+
 
         #forward function for Conditional
         def forward(self, alphas, betas, local_results):
@@ -288,73 +293,26 @@ class Discriminator(nn.Module):
             # Add together last dimension of local results with betas
             n_words = local_results.shape[1]
             local_results_long = local_results.view(-1, 3)
-            local_results_long = local_results_long.unsqueeze(2)
+            # (bsize*n_words, 3)
+            local_results_long = local_results_long.unsqueeze(1)
+            # (bsize*n_words, 1, 3)
             betas_long = betas.view(-1, 3)
-            betas_long = betas_long.unsqueeze(1)
+            # (bsize*n_words, 3)
+            betas_long = betas_long.unsqueeze(2)
+            # (bsize*n_words, 3, 1)
+
+            # (bsize*n_words, 1, 3) @ (bsize*n_words, 3, 1)
             weighted_sum = torch.bmm(local_results_long, betas_long).squeeze()
+            # (bsize*n_words)
             weighted_sum = weighted_sum.view(-1, n_words)
+            # (bsize, n_words)
             # Multiply together second dimension of local results with alphas
             # First raise weighted sums to alphas
             weighted_prod = torch.pow(weighted_sum, alphas)
-            weighted_prod = torch.prod(weighted_prod)
+            weighted_prod = torch.prod(weighted_prod, dim=1)
+            # (bsize)
             return weighted_prod
-            # In discriminator write the alpha and beta classes.
 
-    class TextEncoder(nn.Module):
-        def __init__(self, **kwargs):
-            super().__init__()
-
-            # what is the dimension for softmax function
-            self.beta_ij = nn.Sequential(
-                nn.Linear(512, 3),
-                nn.Softmax(dim=None)
-            )
-            #output size=1
-            self.alpha = nn.Softmax(dim=1)
-            self.weight = nn.Linear(512, 1, bias=False)
-            self.bias = nn.Linear(512, 1, bias=True)
-            self.local_dis = nn.Sigmoid()
-
-            
-            self.text_encoder_GRU = nn.Sequential(
-                    nn.GRU(300, 256, bias = False, bidirectional = True, batch_first=True)
-                    )
-        #forward function for TextEncoder
-        #Can't remember commenting guidelines so it's just going here and we can change later
-        #Params: txt-# words x 300, img from conv3, conv4, or conv5
-        #Returns: Tensor with "score" for each word in sentence of whether or not it appears in image
-        #Will need to be called after each conv layer, so join individual local_discriminator return tensors at the very end
-        def forward(self, txt, img):
-            ''' 
-            Params: txt-# words x 300;
-                img from conv3, conv4, or conv5
-
-            Returns: Tensor with "score" for each word in sentence of whether or not it appears in image
-            Will need to be called after each conv layer, so join individual local_discriminator return tensors at the very end
-            '''
-            
-            local_discriminator = torch.zeros(list(txt.size())[0])
-            
-            # Lando's change
-            #Created a new GRU text encoder in this class because there was no other way to call it from discriminator.
-            txt, _ = self.text_encoder_GRU(txt)
-            count = 0
-            
-            # for w_i in txt:
-            breakpoint()
-            _weight = self.weight(txt)
-            #weight = self.weight.layer.weight.view(-1,1)
-            weight = _weight.view(-1,1)
-            _bias = self.bias(txt)
-            #bias = self.bias.layer.bias
-            bias = _bias.view(-1,1)
-            print(weight.size(), bias.size(), img.size())
-            img = img.view(len(weight), -1)
-            _local_discriminator = self.local_dis(torch.bmm(weight, img) + bias)
-            local_discriminator[count] = _local_discriminator
-            count += 1
-
-            return local_discriminator
 
     #forward function for Discriminator
     def forward(self, img, txt=None):
@@ -375,60 +333,95 @@ class Discriminator(nn.Module):
         # Conditional discriminator
 
         # Throw away the second output of the GRU - it's just stuff from the last elt of the sequence
-        txt_representation, _ = self.text_encoder_GRU(txt)
+        txt_rep, _ = self.text_encoder_GRU(txt)
 
         #alphas
-        #txt_representation will relate to text encoder
+        #txt_rep will relate to text encoder
 
-        # tmp_average: (batch_size, txt_representation)
+        # tmp_average: (batch_size, txt_rep)
         # Our 'u' in equation 3
-        tmp_average = torch.mean(txt_representation, 1)
-        #adds extra dimension
-        # (batch_size, 1, txt_representation)
+        tmp_average = torch.mean(txt_rep, 1)
+        # (bsize, txt_rep_size)
 
-        #batch_size, 1, text_repesentation
-
-        represenation_size = txt_representation.shape[2]
+        rep_size = txt_rep.shape[2]
         # Have to call contiguous() because torch is weird :P
-        txt_representation = txt_representation.contiguous().view(-1, represenation_size)
-        txt_representation = txt_representation.unsqueeze(1)
-        tmp_average = tmp_average.view(-1,1).repeat(1, int(txt_representation.shape[0] / tmp_average.shape[0])).view(-1,tmp_average.shape[1])
-        # tmp_average = tmp_average.expand(txt_representation.shape[0], tmp_average.shape[1])
-        # Now I fix this by repeating the tensor until the target size
-        # TODO: may need to double check if we want it this way
+        txt_rep_flat = txt_rep.contiguous().view(-1, rep_size)
+        # (bsize*n_words, rep_size)
+        txt_rep_flat = txt_rep_flat.unsqueeze(1)
+        # (bsize*n_words, 1, txt_rep_size)
+        n_words = txt_rep.shape[1]
+        tmp_average = tmp_average.repeat(n_words, 1)
+        # (bsize*n_words, txt_rep_size)
         tmp_average= tmp_average.unsqueeze(2)
+        # (bsize*n_words, txt_rep_size, 1)
 
-        dot_products = torch.bmm(txt_representation, tmp_average)
-
-        alphas = torch.zeros(batch_size, len(txt_representation))
-        for i in range(batch_size):
-            alpha = self.alpha(dot_products).squeeze()
-            alphas[i] = alpha
-
-        betas = torch.zeros(batch_size, len(txt_representation), 3)
-        local_results = torch.zeros(batch_size, len(txt_representation), 3)
-
-        count = 0
-        for i in range(batch_size):
-            for w_i in txt_representation:
-                beta = self.beta_ij(w_i)
-                betas[i][count] = beta
-            count+= 1
+        # (bsize*n_words, 1, txt_rep_size) @ (bsize*n_words, txt_rep_size, 1)
+        dot_products = torch.bmm(txt_rep_flat, tmp_average)
+        dot_products = dot_products.view(-1, n_words)
+        # (bsize, n_words)
+        alphas = self.alpha(dot_products)
+        # txt_rep: (bsize, n_words, txt_rep_size)
+        betas = self.beta(txt_rep)
+        # betas: (bsize, n_words, 3)
 
         # Get GAP'ed image encodings for conditional discriminator (local discriminators)
         img_feats = []
         for gap_layer in [3, 4, 5]:
             img_feat = self.image_encoder(gap_layer, img)
             img_feats.append(img_feat)
-
-        for i in range(batch_size):
-            for j in range(3):
-                print(self.text_encoder(txt, img_feats[j]))
-                local_result = self.text_encoder(txt, img_feats[j])
-                local_results[i] = local_result
-
-            # local_results dimensiont: bsize in kwargs, txt length, 3
         
-        weight_prod = Discriminator.Conditional(alphas, betas, local_results)
+        LD_results_by_conv = []
+        for j in range(3):
+            #forward function for TextEncoder
+            #Can't remember commenting guidelines so it's just going here and we can change later
+            #Params: txt-# words x 300, img from conv3, conv4, or conv5
+            #Returns: Tensor with "score" for each word in sentence of whether or not it appears in image
+            #Will need to be called after each conv layer, so join individual local_discriminator return tensors at the very end
+            ''' 
+            Params: txt-# words x 300;
+                img_rep from conv3, conv4, or conv5: (bsize, 256) or (bsize, 512), respectively
+
+            Returns: Tensor with "score" for each word in sentence of whether or not it appears in image
+            Will need to be called after each conv layer, so join individual local_discriminator return tensors at the very end
+            '''
+            
+            # Lando's change
+            #Created a new GRU text encoder in this class because there was no other way to call it from discriminator.
+            img_rep = img_feats[j]
+            # (bsize, img_rep_size)
+            img_rep_size = img_feats[j].shape[1]
+            
+            weight_net = self.LD_weights[j]
+            # txt_rep: (bsize, n_words, txt_rep_size)
+            _weight = weight_net(txt_rep)
+            # (bsize, n_words, img_rep_size)
+            weight = _weight.view(-1, img_rep_size)
+            # (bsize*n_words, img_rep_size)
+            weight = weight.unsqueeze(1)
+            # (bsize*n_words, 1, img_rep_size)
+            bias_net = self.LD_biases[j]
+            bias = bias_net(txt_rep).squeeze()
+            # (bsize, n_words)
+            # Repeat img_rep n_words times
+            img_rep = img_rep.repeat(_weight.shape[1], 1)
+            # (bsize*n_words, img_rep_size)
+            img_rep = img_rep.unsqueeze(2)
+            # (bsize*n_words, img_rep_size, 1)
+
+            # (bsize*n_words, 1, img_rep_size) @ (bsize*n_words, img_rep_size, 1)
+            dot_prods = torch.bmm(weight, img_rep).squeeze()
+            # (bsize*n_words)
+            n_words = txt_rep.shape[1]
+            dot_prods = dot_prods.view(-1, n_words)
+            # (bsize, n_words)
+            dot_prods += bias
+            LD_result = nn.Sigmoid()(dot_prods)
+            # Unsqueeze last dim to concatenate later
+            LD_results_by_conv.append(LD_result.unsqueeze(2))
+
+        # local_results dimension: (bsize in kwargs, txt length, 3)
+        
+        local_results = torch.cat(LD_results_by_conv, dim=2)
+        weight_prod = self.conditional(alphas, betas, local_results)
         return weight_prod
 
