@@ -165,6 +165,7 @@ def train(G, D, epoch, loader, txt_loader, G_optim, D_optim, val=False):
     # pbar = tqdm(total=len(train_loader))
     # Sets model in training mode
     G.train()
+    D.train()
     total_loss_G = 0
     total_loss_D = 0
     pbar = tqdm(total=len(train_loader))
@@ -172,41 +173,35 @@ def train(G, D, epoch, loader, txt_loader, G_optim, D_optim, val=False):
         if not val:
             G_optim.zero_grad()
             D_optim.zero_grad()
+
         img = batch[0].to(kwargs['device'])
-        # Need to instantiate the loss fn - it's an object, not a function
-        loss_fn = nn.CrossEntropyLoss()
-        # Not using cross-entropy anymore, so don't need a target dist
-        # target = torch.ones([kwargs["bsize"]]).long()
         unconditional_logits_real = D(img)
         unconditional_loss_real = unconditional_logits_real.sum(0)
-        # TODO for Will: Double check whether needs to be subtracted from 1
-        # unconditional_loss_real = loss_fn(unconditional_logits_real, target)
+
         text = batch[2].to(kwargs['device'])
         conditional_logits_real = D(img, text)
         conditional_loss_real = conditional_logits_real.sum(0)
-        # conditional_loss_real = loss_fn(conditional_logits_real, target)
+
         text_mismatch = txt_batch[2].to(kwargs['device'])
         conditional_logits_mismatch = D(img, text_mismatch)
         conditional_loss_mismatch = 1 - conditional_logits_real.sum(0)
-        # conditional_loss_mismatch = loss_fn(conditional_logits_mismatch, target)
+
         fake = G(img, text_mismatch)
         unconditional_logits_fake = D(fake)
         unconditional_loss_fake = 1 - unconditional_logits_fake.sum(0)
-        # unconditional_loss_fake = loss_fn(unconditional_logits_fake, target)
+
         loss_D = unconditional_loss_real + unconditional_loss_fake + \
                 kwargs['conditional_weight']*(conditional_loss_real + conditional_loss_mismatch)
         if not val:
             loss_D.backward(retain_graph=True)
             D_optim.step()
-        # text = batch[1].to(kwargs['device'])
-        #TODO: 'text' should potentially be 'embedding' instead (and batch[2])
+
         #Maybe mix up mismatching text at some point during the training?
         ### Get generator's loss
         unconditional_loss_fake = unconditional_logits_fake.sum(0)
-        # unconditional_loss_fake = loss_fn(unconditional_logits_fake, target)
         conditional_logits_fake = D(fake, text_mismatch)
         conditional_loss_fake = conditional_logits_fake.sum(0)
-        # conditional_loss_fake = loss_fn(conditional_logits_fake, target)
+
         # Measures dissimilarity between decoded image and input
         l2_fn = nn.MSELoss()
         reconstructive_loss = l2_fn(fake, img)
@@ -259,8 +254,6 @@ if __name__ == "__main__":
     # one row of losses for training, one for testing
     losses = np.zeros((args.epochs, 4))
     G = Generator(**kwargs)
-    #TODO: it is saying Discriminator not defined
-    # It may be the issue that only subclasses are con
     D = Discriminator(**kwargs)
     # TODO maybe only get parameters in G that require gradients?
     # optim_G = optim.Adam(G.parameters(), lr=args.lr, weight_decay=1e-4)
