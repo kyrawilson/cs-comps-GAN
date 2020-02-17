@@ -55,31 +55,9 @@ class Generator(nn.Module):
         #self.img_rep_channels = 512
         self.img_rep_channels = kwargs["img_rep_dim"]
         self.text_embed_size = kwargs["text_rep_dim"]
+        self.text_encoder = self.TextEncoder(**kwargs)
 
 
-        #TEXT ENCODER
-        #input: # of words in description x 300 (number of features in Fasttext embedding)
-        #output: caption representation of size 256
-
-        self.text_encoder = nn.Sequential(
-        nn.GRU(300, 256, bias = False, bidirectional = True),
-        nn.AvgPool1d(512, 1),
-        nn.Linear(512, 256, bias = False),
-        nn.LeakyReLU(0.2)
-        )
-
-        #CONDITIONING AUGMENTATION
-        #input: text representation of len 256
-        #output: text representation of len 128
-        self.mean = nn.Sequential(
-            nn.Linear(256, 128, bias=False),
-            nn.LeakyReLU(0.2, inplace=True)
-        )
-
-        self.log_sigma = nn.Sequential(
-            nn.Linear(256, 128, bias=False),
-            nn.LeakyReLU(0.2, inplace=True)
-        )
 
 
         # Applies 2D Convolution over an input signal
@@ -138,39 +116,87 @@ class Generator(nn.Module):
         # Sends the module to CUDA if applicable
         self.to(kwargs['device'])
 
+    #TEXT ENCODER
+    #input: # of words in description x 300 (number of features in Fasttext embedding)
+    #output: caption representation of size 256
+    
+    class TextEncoder(nn.Module):
+        def __init__(self, **kwargs):
+            super().__init__()
+            self.gru = nn.GRU(300, 256, bias=False, bidirectional=True, batch_first=True)
+            self.collapse_bidir = nn.Sequential(
+                nn.Linear(512, 256, bias=False),
+                nn.LeakyReLU(0.2)
+            )
+
+            #CONDITIONING AUGMENTATION
+            #input: text representation of len 256
+            #output: text representation of len 128
+            self.mean = nn.Sequential(
+                nn.Linear(256, 128, bias=False),
+                nn.LeakyReLU(0.2, inplace=True)
+            )
+
+            self.log_sigma = nn.Sequential(
+                nn.Linear(256, 128, bias=False),
+                nn.LeakyReLU(0.2, inplace=True)
+            )
+
+        def forward(self, txt):
+            '''
+            txt: (bsize, n_words, txt_embed_size)
+            '''
+            #text encoder
+            txt_feat, _ = self.gru(txt)
+            # (bsize, n_words, txt_rep_size)
+            # average over first dimension (n_words) for tmp average
+            tmp_average = torch.mean(txt_feat, 1)
+            # (bsize, txt_rep_size)
+            tmp_average = self.collapse_bidir(tmp_average)
+            # (bsize, txt_rep_size/2)
+
+            #conditioning augementation of data
+            #Create a Gaussian distribution of text features
+            z_mean = self.mean(tmp_average)
+            # (bsize, txt_rep_size/4)
+            z_log_stddev = self.log_sigma(tmp_average)
+            # (bsize, txt_rep_size/4)
+            bsize = txt_feat.shape[0]
+            z = torch.randn(bsize, 128)
+            # (bsize, txt_rep_size/4)
+            #if next(self.parameters()).is_cuda:
+             #   z = z.cuda()
+            txt_feat = z_mean + z_log_stddev.exp() * z
+            # (bsize, txt_rep_size/4)
+            return txt_feat
 
     #if this is getting params from __getitem__, then it should be img, description, embedding
     #may not actually need raw description at this point though
     def forward(self, img, txt):
+        '''
+        img: (bsize, n_channels, w, h)
+        txt: (bsize, n_words, txt_embed_size)
+        '''
         # image encoder
         img_feat = self.encoder(img)
-
-        #text encoder
         txt_feat = self.text_encoder(txt)
-
-        #conditioning augementation of data
-        #Create a Gaussian distribution of text features
-        z_mean = self.mean(txt_feat)
-        z_log_stddev = self.log_sigma(txt_feat)
-        z = torch.randn(txt_feat.size(0), 128)
-        #if next(self.parameters()).is_cuda:
-         #   z = z.cuda()
-        txt_feat = z_mean + z_log_stddev.exp() * z
-
-        # assume output size of text encoder is 128
+        # (bsize, txt_rep_size/4)
 
         # residual block
         # concatenate text embedding with image represenation
-        text_feat = text_feat.unsqueeze(-1)
-        text_feat = text_feat.unsqueeze(-1)
-        merge = torch.cat(txt_feat, img_feat, 1)
-
+        txt_feat = txt_feat.unsqueeze(-1)
+        txt_feat = txt_feat.unsqueeze(-1)
+        txt_feat = txt_feat.expand(-1, -1, 16, 16)
+        # (bsize, txt_rep_size/4, 16, 16) (where 16 is w and h of the img)
+        merge = torch.cat([txt_feat, img_feat], dim=1)
+        # (bsize, img_rep_size + txt_rep_size/4, 16, 16)
         merge = self.modifier(merge)
-
+        # (bsize, img_rep_size, 16, 16)
 
         # decoder
         # change img_feat to merge when testing with residual blocks
         decode_img = self.decoder(img_feat) # + output_from_residual_block)
+        # (bsize, n_channels, w, h)
         return decode_img
 
 class Discriminator(nn.Module):
@@ -209,6 +235,11 @@ class Discriminator(nn.Module):
         self.LD_biases = [nn.Linear(512, 1, bias=True),
                             nn.Linear(512, 1, bias=True),
                             nn.Linear(512, 1, bias=True)]
+
+        # Sends the model to CUDA if applicable
+        self.to(kwargs['device'])
+        self.LD_weights = [m.to(kwargs['device']) for m in self.LD_weights]
+        self.LD_biases = [m.to(kwargs['device']) for m in self.LD_biases]
 
 
     class ImageEncoder(nn.Module):

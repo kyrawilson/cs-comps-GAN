@@ -63,7 +63,6 @@ class ImgCaptionData(data.Dataset):
         if kwargs['img_transform'] == None:
             img_transform = transforms.ToTensor()
 
-
     #Load images and captions into list of dicts, also add word embedding
     def load_dataset(self, img_files, caption_files, classes_file):
         output = []

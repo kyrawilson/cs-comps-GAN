@@ -15,7 +15,7 @@ import os
 import random
 import time
 import torch
-#torch.cuda.current_device()
+torch.cuda.current_device()
 import torch.nn as nn
 import torch.optim as optim
 import torchvision.transforms as transforms
@@ -180,12 +180,11 @@ def train(G, D, epoch, loader, txt_loader, G_optim, D_optim, val=False):
         unconditional_loss_real = unconditional_logits_real.sum(0)
         # TODO for Will: Double check whether needs to be subtracted from 1
         # unconditional_loss_real = loss_fn(unconditional_logits_real, target)
-        text = batch[2]
+        text = batch[2].to(kwargs['device'])
         conditional_logits_real = D(img, text)
         conditional_loss_real = conditional_logits_real.sum(0)
         # conditional_loss_real = loss_fn(conditional_logits_real, target)
-        text_mismatch = txt_batch[2]
-        breakpoint()
+        text_mismatch = txt_batch[2].to(kwargs['device'])
         conditional_logits_mismatch = D(img, text_mismatch)
         conditional_loss_mismatch = 1 - conditional_logits_real.sum(0)
         # conditional_loss_mismatch = loss_fn(conditional_logits_mismatch, target)
@@ -196,7 +195,7 @@ def train(G, D, epoch, loader, txt_loader, G_optim, D_optim, val=False):
         loss_D = unconditional_loss_real + unconditional_loss_fake + \
                 kwargs['conditional_weight']*(conditional_loss_real + conditional_loss_mismatch)
         if not val:
-            loss_D.backward()
+            loss_D.backward(retain_graph=True)
             D_optim.step()
         # text = batch[1].to(kwargs['device'])
         #TODO: 'text' should potentially be 'embedding' instead (and batch[2])
@@ -210,7 +209,8 @@ def train(G, D, epoch, loader, txt_loader, G_optim, D_optim, val=False):
         # Measures dissimilarity between decoded image and input
         l2_fn = nn.MSELoss()
         reconstructive_loss = l2_fn(fake, img)
-        loss_G = unconditional_loss_fake + kwargs['conditional_weight']*conditional_loss_fake +\
+        loss_G = unconditional_loss_fake +\
+                kwargs['conditional_weight']*conditional_loss_fake +\
                 kwargs['reconstructive_weight']*reconstructive_loss
         if not val:
             loss_G.backward()
