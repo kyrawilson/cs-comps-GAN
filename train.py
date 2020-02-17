@@ -233,8 +233,7 @@ def train(G, D, epoch, loader, txt_loader, G_optim, D_optim, val=False):
         pbar.update()
         print('====> Epoch: {} Average gen loss: {:.4f}\t Average disc loss: {:.4f}'.format(epoch, avg_loss_G, avg_loss_D))
     pbar.close()
-    # TODO: initiate avg_loss
-    return avg_loss
+    return avg_loss_G, avg_loss_D
 
 if __name__ == "__main__":
     args = parse_args()
@@ -258,7 +257,7 @@ if __name__ == "__main__":
                                     # shuffle=True)
     val_loader = [(0, 0)]
     # one row of losses for training, one for testing
-    losses = np.zeros((args.epochs, 2))
+    losses = np.zeros((args.epochs, 4))
     G = Generator(**kwargs)
     #TODO: it is saying Discriminator not defined
     # It may be the issue that only subclasses are con
@@ -274,7 +273,8 @@ if __name__ == "__main__":
                              lr=0.002,
                              betas=[args.momentum, args.square_momentum])
         avg_train_loss = train(G, D, epoch, train_loader, txt_loader, optim_G, optim_D)
-        losses[epoch][0] = avg_train_loss
+        losses[epoch][0] = avg_train_loss[0]
+        losses[epoch][1] = avg_train_loss[1]
 
         # test generator
         # avg_test_loss = train(G, epoch, train_loader, None)
