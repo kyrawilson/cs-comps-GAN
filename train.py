@@ -165,7 +165,8 @@ def train(G, D, epoch, loader, txt_loader, G_optim, D_optim, val=False):
     # pbar = tqdm(total=len(train_loader))
     # Sets model in training mode
     G.train()
-    total_loss = 0
+    total_loss_G = 0
+    total_loss_D = 0
     pbar = tqdm(total=len(train_loader))
     for batch_idx, (batch, txt_batch) in enumerate(zip(loader, txt_loader)):
         if not val:
@@ -232,6 +233,7 @@ def train(G, D, epoch, loader, txt_loader, G_optim, D_optim, val=False):
         pbar.update()
         print('====> Epoch: {} Average gen loss: {:.4f}\t Average disc loss: {:.4f}'.format(epoch, avg_loss_G, avg_loss_D))
     pbar.close()
+    # TODO: initiate avg_loss
     return avg_loss
 
 if __name__ == "__main__":
