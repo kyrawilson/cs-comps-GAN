@@ -174,6 +174,7 @@ def train(G, D, epoch, loader, txt_loader, G_optim, D_optim, val=False):
             G_optim.zero_grad()
             D_optim.zero_grad()
 
+
         img = batch[0].to(kwargs['device'])
         unconditional_logits_real = D(img)
         unconditional_loss_real = unconditional_logits_real.sum(0)
@@ -184,11 +185,40 @@ def train(G, D, epoch, loader, txt_loader, G_optim, D_optim, val=False):
 
         text_mismatch = txt_batch[2].to(kwargs['device'])
         conditional_logits_mismatch = D(img, text_mismatch)
-        conditional_loss_mismatch = 1 - conditional_logits_real.sum(0)
+        conditional_loss_mismatch = (1 - conditional_logits_real).sum(0)
 
         fake = G(img, text_mismatch)
         unconditional_logits_fake = D(fake)
-        unconditional_loss_fake = 1 - unconditional_logits_fake.sum(0)
+        unconditional_loss_fake = (1 - unconditional_logits_fake).sum(0)
+
+        #Counter for naming the images
+        number = 0
+        #Outputs for Last epoch
+        #Better way to do this but
+        # this was mainly just testing how to convert tensor
+        # Can be used as a model.
+        if(epoch == args.epochs - 1 or epoch == args.epochs - 2):
+            for image_real, image_fake in zip(img, fake):
+                number += 1
+                image_real = image_real.detach().cpu().numpy()
+                image_fake = image_fake.detach().cpu().numpy()
+                image_real = np.transpose(image_real, (1,2,0))
+                image_fake = np.transpose(image_fake, (1,2,0))
+                # print("This is the image type", image.dtype)
+                theString = str(number)
+                plt.imshow(image_real)
+                plt.savefig("real_" + theString + ".png")
+                plt.imshow(image_fake)
+                plt.savefig("fake_" + theString + ".png")
+                '''
+                Might get error saying:
+                Clipping input data to the valid range
+                for imshow with RGB data ([0..1] for floats or [0..255] for integers).
+                '''
+                #plt.imshow((image).astype('uint8'))
+                plt.savefig("figure" + theString + ".png")
+            #print("-----------------------")
+
 
         loss_D = unconditional_loss_real + unconditional_loss_fake + \
                 kwargs['conditional_weight']*(conditional_loss_real + conditional_loss_mismatch)
@@ -205,9 +235,11 @@ def train(G, D, epoch, loader, txt_loader, G_optim, D_optim, val=False):
         # Measures dissimilarity between decoded image and input
         l2_fn = nn.MSELoss()
         reconstructive_loss = l2_fn(fake, img)
-        loss_G = unconditional_loss_fake +\
-                kwargs['conditional_weight']*conditional_loss_fake +\
-                kwargs['reconstructive_weight']*reconstructive_loss
+        loss_G = kwargs['reconstructive_weight']*reconstructive_loss +\
+                  unconditional_loss_fake
+        #loss_G = unconditional_loss_fake +\
+                #kwargs['conditional_weight']*conditional_loss_fake +\
+                #kwargs['reconstructive_weight']*reconstructive_loss
         if not val:
             loss_G.backward()
             G_optim.step()
@@ -225,8 +257,8 @@ def train(G, D, epoch, loader, txt_loader, G_optim, D_optim, val=False):
             print(type + ' epoch {} [{}/{} ({:.0f}%)]\tGen Loss: {:.6f}\tDisc Loss: {:.6f}'.format(
                 epoch, batch_idx * img.shape[0], len(train_loader.dataset),
                 100. * batch_idx / len(train_loader), avg_loss_G, avg_loss_D))
-        pbar.update()
-        print('====> Epoch: {} Average gen loss: {:.4f}\t Average disc loss: {:.4f}'.format(epoch, avg_loss_G, avg_loss_D))
+    pbar.update()
+    print('====> Epoch: {} Average gen loss: {:.4f}\t Average disc loss: {:.4f}'.format(epoch, avg_loss_G, avg_loss_D))
     pbar.close()
     return avg_loss_G, avg_loss_D
 
@@ -239,7 +271,7 @@ if __name__ == "__main__":
     train_loader = data.DataLoader(train_data,
                                    batch_size=args.bsize,
                                    shuffle=True)
-    
+
     txt_data = ImgCaptionData(**kwargs)
     txt_loader = data.DataLoader(txt_data,
                                    batch_size=args.bsize,
@@ -265,9 +297,12 @@ if __name__ == "__main__":
         optim_D = optim.Adam(D.parameters(),
                              lr=0.002,
                              betas=[args.momentum, args.square_momentum])
-        avg_train_loss = train(G, D, epoch, train_loader, txt_loader, optim_G, optim_D)
-        losses[epoch][0] = avg_train_loss[0]
-        losses[epoch][1] = avg_train_loss[1]
+        try:
+            avg_train_loss = train(G, D, epoch, train_loader, txt_loader, optim_G, optim_D)
+            losses[epoch][0] = avg_train_loss[0]
+            losses[epoch][1] = avg_train_loss[1]
+        except RuntimeError:
+            print('whoops')
 
         # test generator
         # avg_test_loss = train(G, epoch, train_loader, None)
