@@ -235,7 +235,8 @@ def train(G, D, epoch, loader, txt_loader, G_optim, D_optim, val=False):
         # Measures dissimilarity between decoded image and input
         l2_fn = nn.MSELoss()
         reconstructive_loss = l2_fn(fake, img)
-        loss_G = kwargs['reconstructive_weight']*reconstructive_loss +\
+        loss_G = kwargs['reconstructive_weight']*reconstructive_loss
+        #loss_G = kwargs['reconstructive_weight']*reconstructive_loss +\
                   unconditional_loss_fake
         #loss_G = unconditional_loss_fake +\
                 #kwargs['conditional_weight']*conditional_loss_fake +\
