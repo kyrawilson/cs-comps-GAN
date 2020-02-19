@@ -302,8 +302,8 @@ if __name__ == "__main__":
             avg_train_loss = train(G, D, epoch, train_loader, txt_loader, optim_G, optim_D)
             losses[epoch][0] = avg_train_loss[0]
             losses[epoch][1] = avg_train_loss[1]
-        except RuntimeError:
-            print('whoops')
+        except RuntimeError as err:
+            print('whoops: ', err)
 
         # test generator
         # avg_test_loss = train(G, epoch, train_loader, None)
