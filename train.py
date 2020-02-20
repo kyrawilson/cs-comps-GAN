@@ -45,6 +45,8 @@ def parse_args():
                         help='enables CUDA training')
     parser.add_argument('--data', type=str, default='mini_TAGAN_data',
                         help='folder of data to use')
+    parser.add_argument('--del-discrim-graph', action='store_true',
+                        help='whether or not to delete the discriminator\'s autograd data')
     parser.add_argument('--epochs', type=int, default=10,
                         help='number of epochs to train for')
     parser.add_argument('--img-files', type=str, default='images',
@@ -102,6 +104,7 @@ def make_kwargs(args, seed, model_id):
         'cuda': args.cuda,
         'data': args.data,
         'date:': time.strftime("%Y-%m-%d %H:%M"),
+        'del_discrim_graph': args.del_discrim_graph,
         'epochs': args.epochs,
         'lr': args.lr,
         'img_files': args.data + '/' + args.img_files,
@@ -174,7 +177,6 @@ def train(G, D, epoch, loader, txt_loader, G_optim, D_optim, val=False):
             G_optim.zero_grad()
             D_optim.zero_grad()
 
-
         img = batch[0].to(kwargs['device'])
         unconditional_logits_real = D(img)
         unconditional_loss_real = unconditional_logits_real.sum(0)
@@ -190,6 +192,7 @@ def train(G, D, epoch, loader, txt_loader, G_optim, D_optim, val=False):
         fake = G(img, text_mismatch)
         unconditional_logits_fake = D(fake)
         unconditional_loss_fake = (1 - unconditional_logits_fake).sum(0)
+
 
         #Counter for naming the images
         number = 0
@@ -220,13 +223,22 @@ def train(G, D, epoch, loader, txt_loader, G_optim, D_optim, val=False):
             #print("-----------------------")
 
 
+        # print('ur:', unconditional_loss_real)
+        # print('uf:', unconditional_loss_fake)
+        # print('cr:', conditional_loss_real)
+        # print('cr logits:', conditional_logits_real)
+        # print('cm:', conditional_loss_mismatch)
+        # print('cm logits:', conditional_logits_mismatch)
         loss_D = unconditional_loss_real + unconditional_loss_fake + \
                 kwargs['conditional_weight']*(conditional_loss_real + conditional_loss_mismatch)
         if not val:
-            loss_D.backward(retain_graph=True)
+            loss_D.backward(retain_graph=(not args.del_discrim_graph))
             D_optim.step()
 
         #Maybe mix up mismatching text at some point during the training?
+        if args.del_discrim_graph:
+            fake = G(img, text_mismatch)
+            unconditional_logits_fake = D(fake)
         ### Get generator's loss
         unconditional_loss_fake = unconditional_logits_fake.sum(0)
         conditional_logits_fake = D(fake, text_mismatch)
