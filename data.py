@@ -63,7 +63,6 @@ class ImgCaptionData(data.Dataset):
         if kwargs['img_transform'] == None:
             img_transform = transforms.ToTensor()
 
-
     #Load images and captions into list of dicts, also add word embedding
     def load_dataset(self, img_files, caption_files, classes_file):
         output = []
@@ -79,7 +78,8 @@ class ImgCaptionData(data.Dataset):
                 captions = os.listdir(os.path.join(caption_files,class_name))
                 for caption in captions:
                     image_path = os.path.join(img_files, class_name, caption.replace("txt", "jpg"))
-                    caption_path = os.path.join(caption_files, class_name, caption)
+                    # caption_path = os.path.join(caption_files, class_name, caption)
+                    caption_path = '{}/{}/{}'.format(caption_files, class_name, caption)
 
                     if not(caption_path.startswith("._")):
                         with open(caption_path) as f2:
@@ -129,7 +129,7 @@ class ImgCaptionData(data.Dataset):
         value = self.data[index]
         image = Image.open(value['img'])
         image = self.img_transform(image)
-        randIndex = random.randint(0,len(value['caption']));
+        randIndex = random.randint(0,len(value['caption'])-1)
         description = value['caption'][randIndex]
         embedding = value['embedding'][randIndex]
         class_name = value['class_name'][randIndex]
