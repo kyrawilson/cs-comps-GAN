@@ -43,7 +43,7 @@ def parse_args():
                         help='name of file containing list of bird classes')
     parser.add_argument('--cuda', action='store_true', default=False,
                         help='enables CUDA training')
-    parser.add_argument('--data', type=str, default='mini_TAGAN_data',
+    parser.add_argument('--data', type=str, default='TAGAN_data',
                         help='folder of data to use')
     parser.add_argument('--del-discrim-graph', action='store_true',
                         help='whether or not to delete the discriminator\'s autograd data')

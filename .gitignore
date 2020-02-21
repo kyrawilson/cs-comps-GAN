@@ -12,6 +12,13 @@ caption_embedding.pkl
 *.png
 
 
+# MacOS bookkeeping files
+._*
+
+# Images
+*.png
+
+
 ##############################################################
 
 # Byte-compiled / optimized / DLL files
