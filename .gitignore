@@ -6,6 +6,13 @@
 # Model saves
 saves/
 
+# MacOS bookkeeping files
+._*
+
+# Images
+*.png
+
+
 ##############################################################
 
 # Byte-compiled / optimized / DLL files
