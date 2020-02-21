@@ -2,9 +2,15 @@
 
 #Big word vectors file
 *.bin
+*.pkl
+caption_embedding.pkl
 
-# Model saves
-saves/
+# MacOS bookkeeping files
+._*
+
+# Images
+*.png
+
 
 # MacOS bookkeeping files
 ._*
@@ -140,3 +146,6 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# Don't commit saves
+saves/
