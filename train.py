@@ -278,7 +278,7 @@ def train(G, D, epoch, loader, txt_loader, G_optim, D_optim, val=False):
 if __name__ == "__main__":
     args = parse_args()
     if args.cuda:
-        print('Using GPU: ' torch.cuda.get_device_name(0))
+        print('Using GPU: ' + torch.cuda.get_device_name(0))
     seed = set_seeds(args.seed)
     model_id, model_dir = make_model_dir(args.out_dir)
     kwargs = make_kwargs(args, seed, model_id)
