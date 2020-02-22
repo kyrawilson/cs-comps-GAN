@@ -47,6 +47,8 @@ def parse_args():
                         help='folder of data to use')
     parser.add_argument('--del-discrim-graph', action='store_true',
                         help='whether or not to delete the discriminator\'s autograd data')
+    parser.add_argument('--embedding-file', type=str, default='caption_embedding_all.pkl',
+                       help='name of caption embedding file')
     parser.add_argument('--epochs', type=int, default=10,
                         help='number of epochs to train for')
     parser.add_argument('--img-files', type=str, default='images',
@@ -105,6 +107,7 @@ def make_kwargs(args, seed, model_id):
         'data': args.data,
         'date:': time.strftime("%Y-%m-%d %H:%M"),
         'del_discrim_graph': args.del_discrim_graph,
+        'embedding_file': args.embedding_file, 
         'epochs': args.epochs,
         'lr': args.lr,
         'img_files': args.data + '/' + args.img_files,
@@ -200,8 +203,8 @@ def train(G, D, epoch, loader, txt_loader, G_optim, D_optim, val=False):
         #Better way to do this but
         # this was mainly just testing how to convert tensor
         # Can be used as a model.
-        if(epoch == args.epochs - 1 or epoch == args.epochs - 2):
-            for image_real, image_fake in zip(img, fake):
+        if(epoch == args.epochs - 1 or epoch == args.epochs - 2) and batch_idx == 0:
+            for image_real, image_fake, txt_new in zip(img, fake, txt_batch[1]):
                 number += 1
                 image_real = image_real.detach().cpu().numpy()
                 image_fake = image_fake.detach().cpu().numpy()
@@ -219,7 +222,8 @@ def train(G, D, epoch, loader, txt_loader, G_optim, D_optim, val=False):
                 for imshow with RGB data ([0..1] for floats or [0..255] for integers).
                 '''
                 #plt.imshow((image).astype('uint8'))
-                plt.savefig("figure" + theString + ".png")
+                with open('text_' + theString + '.txt', 'w') as txt_file:
+                    txt_file.write(txt_new)
             #print("-----------------------")
 
 
@@ -247,12 +251,12 @@ def train(G, D, epoch, loader, txt_loader, G_optim, D_optim, val=False):
         # Measures dissimilarity between decoded image and input
         l2_fn = nn.MSELoss()
         reconstructive_loss = l2_fn(fake, img)
-        loss_G = kwargs['reconstructive_weight']*reconstructive_loss
+        #loss_G = kwargs['reconstructive_weight']*reconstructive_loss
         #loss_G = kwargs['reconstructive_weight']*reconstructive_loss +\
                   #unconditional_loss_fake
-        #loss_G = unconditional_loss_fake +\
-                #kwargs['conditional_weight']*conditional_loss_fake +\
-                #kwargs['reconstructive_weight']*reconstructive_loss
+        loss_G = unconditional_loss_fake +\
+                kwargs['conditional_weight']*conditional_loss_fake +\
+                kwargs['reconstructive_weight']*reconstructive_loss
         if not val:
             loss_G.backward()
             G_optim.step()
@@ -270,7 +274,7 @@ def train(G, D, epoch, loader, txt_loader, G_optim, D_optim, val=False):
             print(type + ' epoch {} [{}/{} ({:.0f}%)]\tGen Loss: {:.6f}\tDisc Loss: {:.6f}'.format(
                 epoch, batch_idx * img.shape[0], len(train_loader.dataset),
                 100. * batch_idx / len(train_loader), avg_loss_G, avg_loss_D))
-    pbar.update()
+        pbar.update()
     print('====> Epoch: {} Average gen loss: {:.4f}\t Average disc loss: {:.4f}'.format(epoch, avg_loss_G, avg_loss_D))
     pbar.close()
     return avg_loss_G, avg_loss_D
@@ -287,8 +291,8 @@ if __name__ == "__main__":
                                    batch_size=args.bsize,
                                    shuffle=True)
 
-    txt_data = ImgCaptionData(**kwargs)
-    txt_loader = data.DataLoader(txt_data,
+    #txt_data = ImgCaptionData(**kwargs)
+    txt_loader = data.DataLoader(train_data,
                                    batch_size=args.bsize,
                                    shuffle=True)
     # train_loader = [(0, 0)]
@@ -312,12 +316,9 @@ if __name__ == "__main__":
         optim_D = optim.Adam(D.parameters(),
                              lr=0.002,
                              betas=[args.momentum, args.square_momentum])
-        try:
-            avg_train_loss = train(G, D, epoch, train_loader, txt_loader, optim_G, optim_D)
-            losses[epoch][0] = avg_train_loss[0]
-            losses[epoch][1] = avg_train_loss[1]
-        except RuntimeError as err:
-            print('whoops: ', err)
+        avg_train_loss = train(G, D, epoch, train_loader, txt_loader, optim_G, optim_D)
+        losses[epoch][0] = avg_train_loss[0]
+        losses[epoch][1] = avg_train_loss[1]
 
         # test generator
         # avg_test_loss = train(G, epoch, train_loader, None)

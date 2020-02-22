@@ -37,7 +37,7 @@ classes_file = "TAGAN_data/classes.txt"
 img_transform = transforms.Compose([transforms.Resize((136,136)),
                                          transforms.RandomCrop(128),
                                          transforms.RandomHorizontalFlip(),
-                                         transforms.RandomRotation(10),
+                                         transforms.RandomRotation(10, fill=(0,)),
                                          transforms.ToTensor()])
 
 class ImgCaptionData(data.Dataset):
@@ -55,7 +55,7 @@ class ImgCaptionData(data.Dataset):
         self.img_transform = transforms.Compose([transforms.Resize((136,136)),
                                                  transforms.RandomCrop(128),
                                                  transforms.RandomHorizontalFlip(),
-                                                 transforms.RandomRotation(10),
+                                                 #transforms.RandomRotation(10, fill=(0,)),
                                                  transforms.ToTensor()])
 
         self.max_word_length = 50
@@ -120,7 +120,11 @@ class ImgCaptionData(data.Dataset):
         return output
 
     def get_word_embedding_fast(self, caption_path):
-        return self.word_embedding[caption_path]
+        embeddings = [embedding for embedding in self.word_embedding[caption_path] if embedding.shape[0] == 50]
+        assert all([embedding.shape == embeddings[0].shape for embedding in embeddings])
+        while len(embeddings) < 10:
+            embeddings.append(torch.zeros(embeddings[0].shape))
+        return embeddings
 
     def __len__(self):
         return len(self.data)
@@ -134,6 +138,8 @@ class ImgCaptionData(data.Dataset):
         description = value['caption'][randIndex]
         embedding = value['embedding'][randIndex]
         class_name = value['class_name'][randIndex]
+        if image.shape != torch.Size([3, 128, 128]):
+            image = image.expand(3, -1, -1)
         return image, description, embedding, class_name
 
 #test = ImgCaptionData(img_files, caption_files, classes_file, img_transform = None)
