@@ -55,12 +55,15 @@ def load_dataset(img_files, caption_files, classes_file):
 
                     if not(caption_path.startswith("._")):
                         with open(caption_path, 'r') as f2:
-                            print(caption_path)
+                            #print(caption_path)
                             caption_list = f2.readlines()
                             #Might need to strip newline char here
                             #print(caption_list)
                             embedding = get_word_embedding(caption_list)
-                            output[caption_path] = get_word_embedding(caption_list)
+                            #temp_caption_path = "TAGAN_data" + caption_files + class_name + caption
+                            temp_caption_path = '{}/{}/{}/{}'.format("TAGAN_data", "text_c10", class_name, caption)
+                            print(temp_caption_path)
+                            output[temp_caption_path] = get_word_embedding(caption_list)
 
                             f2.close()
             i += 1
