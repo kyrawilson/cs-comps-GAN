@@ -15,7 +15,7 @@ import os
 import random
 import time
 import torch
-#torch.cuda.current_device()
+torch.cuda.current_device()
 import torch.nn as nn
 import torch.optim as optim
 import torchvision.transforms as transforms
@@ -25,6 +25,7 @@ import torch.utils.data as data
 
 from data import ImgCaptionData
 from model import Generator
+from model import Discriminator
 
 # from models import Generator
 
@@ -42,8 +43,12 @@ def parse_args():
                         help='name of file containing list of bird classes')
     parser.add_argument('--cuda', action='store_true', default=False,
                         help='enables CUDA training')
-    parser.add_argument('--data', type=str, default='mini_TAGAN_data',
+    parser.add_argument('--data', type=str, default='TAGAN_data',
                         help='folder of data to use')
+    parser.add_argument('--del-discrim-graph', action='store_true',
+                        help='whether or not to delete the discriminator\'s autograd data')
+    parser.add_argument('--embedding-file', type=str, default='caption_embedding_all.pkl',
+                       help='name of caption embedding file')
     parser.add_argument('--epochs', type=int, default=10,
                         help='number of epochs to train for')
     parser.add_argument('--img-files', type=str, default='images',
@@ -93,15 +98,19 @@ def plot_losses(losses, dest):
 def make_kwargs(args, seed, model_id):
     kwargs = {
         'bsize': args.bsize,
-        'caption_files': os.path.join(args.data, args.caption_files),
-        'classes_file': os.path.join(args.data, args.classes_file),
+        # 'caption_files': os.path.join(args.data, args.caption_files),
+        # 'classes_file': os.path.join(args.data, args.classes_file),
+        'caption_files': args.data + '/' + args.caption_files,
+        'classes_file': args.data + '/' + args.classes_file,
         'conditional_weight': args.lambda_1,
         'cuda': args.cuda,
         'data': args.data,
         'date:': time.strftime("%Y-%m-%d %H:%M"),
+        'del_discrim_graph': args.del_discrim_graph,
+        'embedding_file': args.embedding_file, 
         'epochs': args.epochs,
         'lr': args.lr,
-        'img_files': os.path.join(args.data, args.img_files),
+        'img_files': args.data + '/' + args.img_files,
         'img_rep_dim': args.img_rep_dim,
         'model_id': model_id,
         'momentum': args.momentum,
@@ -154,61 +163,108 @@ def make_model_dir(out_dir):
         os.makedirs(os.path.join(out_dir, model_id))
     return model_id, os.path.join(out_dir, model_id)
 
-def train(G, D, epoch, loader, G_optim, D_optim, val=False):
+def train(G, D, epoch, loader, txt_loader, G_optim, D_optim, val=False):
     """ Train (or validate) models for a single epoch.
     """
-    val = optimizer == None
+    val = D_optim == None or G_optim == None
     # train_loader.init_epoch()
     # pbar = tqdm(total=len(train_loader))
     # Sets model in training mode
     G.train()
-    total_loss = 0
+    D.train()
+    total_loss_G = 0
+    total_loss_D = 0
     pbar = tqdm(total=len(train_loader))
     for batch_idx, (batch, txt_batch) in enumerate(zip(loader, txt_loader)):
         if not val:
             G_optim.zero_grad()
             D_optim.zero_grad()
+
         img = batch[0].to(kwargs['device'])
-        # Need to instantiate the loss fn - it's an object, not a function
-        loss_fn = nn.CrossEntropyLoss()
-        target = torch.ones([batch_size]).double()
         unconditional_logits_real = D(img)
-        unconditional_loss_real = loss_fn(unconditional_logits_real, target)
-        text = batch[1]
+        unconditional_loss_real = unconditional_logits_real.sum(0)
+
+        text = batch[2].to(kwargs['device'])
         conditional_logits_real = D(img, text)
-        conditional_loss_real = loss_fn(conditional_logits_real, target)
-        #Left off here
-        #TODO: conditional_logits_mismatch and uncoditional_logits_fake
-        text_mismatch = txt_batch[1]
+        conditional_loss_real = conditional_logits_real.sum(0)
+
+        text_mismatch = txt_batch[2].to(kwargs['device'])
         conditional_logits_mismatch = D(img, text_mismatch)
-        target = 1-target
-        conditional_loss_mismatch = loss_fn(conditional_logits_mismatch, target)
+        conditional_loss_mismatch = (1 - conditional_logits_real).sum(0)
+
         fake = G(img, text_mismatch)
         unconditional_logits_fake = D(fake)
-        unconditional_loss_fake = loss_fn(unconditional_logits_fake, target)
+        unconditional_loss_fake = (1 - unconditional_logits_fake).sum(0)
+
+
+        #Counter for naming the images
+        number = 0
+        #Outputs for Last epoch
+        #Better way to do this but
+        # this was mainly just testing how to convert tensor
+        # Can be used as a model.
+        if(epoch == args.epochs - 1 or epoch == args.epochs - 2 or epoch % 10 == 0) and batch_idx == 0:
+            for image_real, image_fake, txt_new in zip(img, fake, txt_batch[1]):
+                number += 1
+                image_real = image_real.detach().cpu().numpy()
+                image_fake = image_fake.detach().cpu().numpy()
+                image_real = np.transpose(image_real, (1,2,0))
+                image_fake = np.transpose(image_fake, (1,2,0))
+                # print("This is the image type", image.dtype)
+                theString = str(number)
+                drivePath = 'drive/My Drive/taganData/'
+                plt.imshow(image_real)
+                plt.title("Real " + theString)
+                plt.savefig(drivePath + "real_" + str(epoch) + "-"+ theString + ".png")
+                plt.imshow(image_fake)
+                plt.title("Fake " + theString)
+                plt.savefig(drivePath +"fake_" + str(epoch) + "-" + theString + ".png")
+                """
+                Might get error saying:
+                Clipping input data to the valid range
+                for imshow with RGB data ([0..1] for floats or [0..255] for integers).
+                """
+                #plt.imshow((image).astype('uint8'))
+                with open(drivePath + 'text_' + str(epoch) + "-"+ theString + '.txt', 'w') as txt_file:
+                    txt_file.write(txt_new)
+            #print("-----------------------")
+
+        # print('ur:', unconditional_loss_real)
+        # print('uf:', unconditional_loss_fake)
+        # print('cr:', conditional_loss_real)
+        # print('cr logits:', conditional_logits_real)
+        # print('cm:', conditional_loss_mismatch)
+        # print('cm logits:', conditional_logits_mismatch)
         loss_D = unconditional_loss_real + unconditional_loss_fake + \
                 kwargs['conditional_weight']*(conditional_loss_real + conditional_loss_mismatch)
         if not val:
-            loss_D.backward()
+            loss_D.backward(retain_graph=(not args.del_discrim_graph))
             D_optim.step()
-        # text = batch[1].to(kwargs['device'])
-        #TODO: 'text' should potentially be 'embedding' instead (and batch[2])
+
         #Maybe mix up mismatching text at some point during the training?
+        if args.del_discrim_graph:
+            fake = G(img, text_mismatch)
+            unconditional_logits_fake = D(fake)
         ### Get generator's loss
-        target = 1-target
-        unconditional_loss_fake = loss_fn(unconditional_logits_fake, target)
+        unconditional_loss_fake = unconditional_logits_fake.sum(0)
         conditional_logits_fake = D(fake, text_mismatch)
-        conditional_loss_fake = loss_fn(conditional_logits_fake, target)
+        conditional_loss_fake = conditional_logits_fake.sum(0)
+
         # Measures dissimilarity between decoded image and input
         l2_fn = nn.MSELoss()
         reconstructive_loss = l2_fn(fake, img)
-        loss_G = unconditional_loss_fake + kwargs['conditional_weight']*conditional_loss_fake +\
+        #loss_G = kwargs['reconstructive_weight']*reconstructive_loss
+        #loss_G = kwargs['reconstructive_weight']*reconstructive_loss +\
+                  #unconditional_loss_fake
+        loss_G = unconditional_loss_fake +\
+                kwargs['conditional_weight']*conditional_loss_fake +\
                 kwargs['reconstructive_weight']*reconstructive_loss
         if not val:
             loss_G.backward()
             G_optim.step()
         total_loss_G += loss_G
         total_loss_D += loss_D
+        
         # Update progress
         if batch_idx % args.log_interval == 0:
             if val:
@@ -222,45 +278,141 @@ def train(G, D, epoch, loader, G_optim, D_optim, val=False):
                 epoch, batch_idx * img.shape[0], len(train_loader.dataset),
                 100. * batch_idx / len(train_loader), avg_loss_G, avg_loss_D))
         pbar.update()
-        print('====> Epoch: {} Average gen loss: {:.4f}\t Average disc loss: {:.4f}'.format(epoch, avg_loss_G, avg_loss_D))
+        
+    print('====> Epoch: {} Average gen loss: {:.4f}\t Average disc loss: {:.4f}'.format(epoch, avg_loss_G, avg_loss_D))
     pbar.close()
-    return avg_loss
+
+    #Saving the model at various epochs.
+    if (epoch % 10 == 0):
+        print("I am here saving the model")
+        drivePath = 'drive/My Drive/taganData/checkpoints/'
+
+        checkpoint = {
+            'epoch': epoch,
+            'genTrain': G.state_dict(),
+            'discrimTrain': D.state_dict(),
+            'genOptim': G_optim.state_dict(),
+            'disOptim': D_optim.state_dict()
+            }
+        path = drivePath + 'model_' + str(epoch) +'.pt'
+        torch.save(checkpoint, path)
+
+        
+    return avg_loss_G, avg_loss_D
 
 if __name__ == "__main__":
     args = parse_args()
-    seed = set_seeds(args.seed)
-    model_id, model_dir = make_model_dir(args.out_dir)
-    kwargs = make_kwargs(args, seed, model_id)
-    train_data = ImgCaptionData(**kwargs)
-    train_loader = data.DataLoader(train_data,
-                                   batch_size=args.bsize,
-                                   shuffle=True)
-    # train_loader = [(0, 0)]
+    if args.cuda:
+        print('Using GPU: ' + torch.cuda.get_device_name(0))
 
-    # val_data = ???
-    # val_loader = data.DataLoader(val_data,
-                                    # batch_size=args.batch_size,
-                                    # shuffle=True)
-    val_loader = [(0, 0)]
-    # one row of losses for training, one for testing
-    losses = np.zeros((args.epochs, 2))
-    G = Generator(**kwargs)
-    D = Discriminator(**kwargs)
-    # TODO maybe only get parameters in G that require gradients?
-    # optim_G = optim.Adam(G.parameters(), lr=args.lr, weight_decay=1e-4)
-    for epoch in range(args.epochs):
-        # train generator
+    
+    useModel = False # make true to load a model
+    #make improvements later
+    if useModel == True:
+        drivePath = 'drive/My Drive/taganData/checkpoints'
+        newPath = drivePath + 'model_0.pt'
+        checkpoint = torch.load(newPath)
+        seed = set_seeds(args.seed)
+        model_id, model_dir = make_model_dir(args.out_dir)
+        kwargs = make_kwargs(args, seed, model_id)
+        train_data = ImgCaptionData(**kwargs)
+        train_loader = data.DataLoader(train_data,
+                                    batch_size=args.bsize,
+                                    shuffle=True)
+
+        #txt_data = ImgCaptionData(**kwargs)
+        txt_loader = data.DataLoader(train_data,
+                                    batch_size=args.bsize,
+                                    shuffle=True)
+        # train_loader = [(0, 0)]
+
+        # val_data = ???
+        # val_loader = data.DataLoader(val_data,
+                                        # batch_size=args.batch_size,
+                                        # shuffle=True)
+        val_loader = [(0, 0)]
+        # one row of losses for training, one for testing
+        losses = np.zeros((args.epochs, 4))
+        G = Generator(**kwargs)
+        D = Discriminator(**kwargs)
+        G.load_state_dict(checkpoint['genTrain'])
+        D.load_state_dict(checkpoint['discrimTrain'])
+        epoch2 = checkpoint['epoch']
         optim_G = optim.Adam(G.parameters(),
-                             lr=0.002,
-                             betas=[args.momentum, args.square_momentum])
+                                lr=0.002,
+                                betas=[args.momentum, args.square_momentum])
+        optim_G.load_state_dict(checkpoint['genOptim'])
         optim_D = optim.Adam(D.parameters(),
-                             lr=0.002,
-                             betas=[args.momentum, args.square_momentum])
-        avg_train_loss = train(G, D, epoch, train_loader, optim_G, optim_D)
-        losses[epoch][0] = avg_train_loss
+                                lr=0.002,
+                                betas=[args.momentum, args.square_momentum])
+        optim_D.load_state_dict(checkpoint['disOptim'])
 
-        # test generator
-        # avg_test_loss = train(G, epoch, train_loader, None)
-        # losses[1][epoch] = avg_test_loss
-    dest = os.path.join(model_dir, 'loss.png')
-    plot_losses(losses, dest)
+        # TODO maybe only get parameters in G that require gradients?
+        # optim_G = optim.Adam(G.parameters(), lr=args.lr, weight_decay=1e-4)
+        for epoch in range(epoch2, args.epochs):
+            # train generator
+            if epoch == epoch2:
+                avg_train_loss = train(G, D, epoch, train_loader, txt_loader, optim_G, optim_D)
+                losses[epoch][0] = avg_train_loss[0]
+                losses[epoch][1] = avg_train_loss[1]
+        
+            else:
+                optim_G = optim.Adam(G.parameters(),
+                                    lr=0.002,
+                                    betas=[args.momentum, args.square_momentum])
+                optim_D = optim.Adam(D.parameters(),
+                                    lr=0.002,
+                                    betas=[args.momentum, args.square_momentum])
+                avg_train_loss = train(G, D, epoch, train_loader, txt_loader, optim_G, optim_D)
+                losses[epoch][0] = avg_train_loss[0]
+                losses[epoch][1] = avg_train_loss[1]
+
+            # test generator
+            # avg_test_loss = train(G, epoch, train_loader, None)
+            # losses[1][epoch] = avg_test_loss
+        dest = os.path.join(model_dir, 'loss.png')
+        plot_losses(losses, dest)
+        
+    else:    
+        seed = set_seeds(args.seed)
+        model_id, model_dir = make_model_dir(args.out_dir)
+        kwargs = make_kwargs(args, seed, model_id)
+        train_data = ImgCaptionData(**kwargs)
+        train_loader = data.DataLoader(train_data,
+                                    batch_size=args.bsize,
+                                    shuffle=True)
+
+        #txt_data = ImgCaptionData(**kwargs)
+        txt_loader = data.DataLoader(train_data,
+                                    batch_size=args.bsize,
+                                    shuffle=True)
+        # train_loader = [(0, 0)]
+
+        # val_data = ???
+        # val_loader = data.DataLoader(val_data,
+                                        # batch_size=args.batch_size,
+                                        # shuffle=True)
+        val_loader = [(0, 0)]
+        # one row of losses for training, one for testing
+        losses = np.zeros((args.epochs, 4))
+        G = Generator(**kwargs)
+        D = Discriminator(**kwargs)
+        # TODO maybe only get parameters in G that require gradients?
+        # optim_G = optim.Adam(G.parameters(), lr=args.lr, weight_decay=1e-4)
+        for epoch in range(args.epochs):
+            # train generator
+            optim_G = optim.Adam(G.parameters(),
+                                lr=0.002,
+                                betas=[args.momentum, args.square_momentum])
+            optim_D = optim.Adam(D.parameters(),
+                                lr=0.002,
+                                betas=[args.momentum, args.square_momentum])
+            avg_train_loss = train(G, D, epoch, train_loader, txt_loader, optim_G, optim_D)
+            losses[epoch][0] = avg_train_loss[0]
+            losses[epoch][1] = avg_train_loss[1]
+
+            # test generator
+            # avg_test_loss = train(G, epoch, train_loader, None)
+            # losses[1][epoch] = avg_test_loss
+        dest = os.path.join(model_dir, 'loss.png')
+        plot_losses(losses, dest)

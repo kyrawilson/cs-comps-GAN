@@ -1,0 +1,21 @@
+{
+  "bsize": 64,
+  "caption_files": "mini_TAGAN_data/text_c10",
+  "classes_file": "mini_TAGAN_data/classes.txt",
+  "conditional_weight": 10,
+  "cuda": false,
+  "data": "mini_TAGAN_data",
+  "date:": "2020-02-10 14:07",
+  "epochs": 10,
+  "lr": 0.002,
+  "img_files": "mini_TAGAN_data/images",
+  "img_rep_dim": 512,
+  "model_id": "5339be86-68d5-461c-9a22-b52435635d70",
+  "momentum": 0.5,
+  "reconstructive_weight": 2,
+  "seed": 2885692975,
+  "schedule_epochs": 100,
+  "schedule_gamma": 0.5,
+  "square_momentum": 0.999,
+  "text_rep_dim": 128
+}

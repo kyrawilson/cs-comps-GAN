@@ -30,40 +30,38 @@ import pickle
 from string import digits
 from PIL import Image
 
-FT_file = "mini_TAGAN_data/cc.en.300.bin"
-img_files = "mini_TAGAN_data/images"
-caption_files = "mini_TAGAN_data/text_c10"
-classes_file = "mini_TAGAN_data/classes.txt"
+FT_file = "TAGAN_data/cc.en.300.bin"
+img_files = "TAGAN_data/images"
+caption_files = "TAGAN_data/text_c10"
+classes_file = "TAGAN_data/classes.txt"
 img_transform = transforms.Compose([transforms.Resize((136,136)),
                                          transforms.RandomCrop(128),
                                          transforms.RandomHorizontalFlip(),
-                                         transforms.RandomRotation(10),
+                                         transforms.RandomRotation(10, fill=(0,)),
                                          transforms.ToTensor()])
 
 class ImgCaptionData(data.Dataset):
 
     def __init__(self, **kwargs):
         #super(whatever)__init__()?
-        print("Loading fasttext model...")
-        self.word_embedding = fasttext.load_model(FT_file)
-        print("Fast text is loaded!")
+        #print("Loading fasttext model...")
+        #self.word_embedding = fasttext.load_model(FT_file)
+        #print("Fast text is loaded!")
 
-        #self.word_embedding = pickle.load(open( "caption_embedding.pkl", "rb" ))
-        print(self.word_embedding)
+        self.word_embedding = pickle.load(open( "caption_embedding_all.pkl", "rb" ))
         self.data = self.load_dataset(kwargs['img_files'], kwargs['caption_files'], kwargs['classes_file'])
 
         #add in kwargs here
         self.img_transform = transforms.Compose([transforms.Resize((136,136)),
                                                  transforms.RandomCrop(128),
                                                  transforms.RandomHorizontalFlip(),
-                                                 transforms.RandomRotation(10),
+                                                 #transforms.RandomRotation(10, fill=(0,)),
                                                  transforms.ToTensor()])
 
         self.max_word_length = 50
 
         if kwargs['img_transform'] == None:
             img_transform = transforms.ToTensor()
-
 
     #Load images and captions into list of dicts, also add word embedding
     def load_dataset(self, img_files, caption_files, classes_file):
@@ -80,7 +78,8 @@ class ImgCaptionData(data.Dataset):
                 captions = os.listdir(os.path.join(caption_files,class_name))
                 for caption in captions:
                     image_path = os.path.join(img_files, class_name, caption.replace("txt", "jpg"))
-                    caption_path = os.path.join(caption_files, class_name, caption)
+                    # caption_path = os.path.join(caption_files, class_name, caption)
+                    caption_path = '{}/{}/{}'.format(caption_files, class_name, caption)
 
                     if not(caption_path.startswith("._")):
                         with open(caption_path) as f2:
@@ -89,7 +88,7 @@ class ImgCaptionData(data.Dataset):
                             output.append({
                                 'img': image_path,
                                 'caption': caption_list,
-                                'embedding': self.get_word_embedding(caption_list),
+                                'embedding': self.get_word_embedding_fast(caption_path),
                                 'class_name': class_name
                                 })
                             f2.close()
@@ -117,10 +116,15 @@ class ImgCaptionData(data.Dataset):
         #This line was in the original code, but I'm not totally sure what the point is...
         #output = torch.stack(output)
 
+        #torch.save(tensor, 'caption_embeddings.pt')
         return output
 
     def get_word_embedding_fast(self, caption_path):
-        return self.word_embedding[caption_path]
+        embeddings = [embedding for embedding in self.word_embedding[caption_path] if embedding.shape[0] == 50]
+        assert all([embedding.shape == embeddings[0].shape for embedding in embeddings])
+        while len(embeddings) < 10:
+            embeddings.append(torch.zeros(embeddings[0].shape))
+        return embeddings
 
     def __len__(self):
         return len(self.data)
@@ -130,10 +134,12 @@ class ImgCaptionData(data.Dataset):
         value = self.data[index]
         image = Image.open(value['img'])
         image = self.img_transform(image)
-        randIndex = random.randint(0,len(value['caption']));
+        randIndex = random.randint(0,len(value['caption'])-1)
         description = value['caption'][randIndex]
         embedding = value['embedding'][randIndex]
         class_name = value['class_name'][randIndex]
+        if image.shape != torch.Size([3, 128, 128]):
+            image = image.expand(3, -1, -1)
         return image, description, embedding, class_name
 
 #test = ImgCaptionData(img_files, caption_files, classes_file, img_transform = None)
