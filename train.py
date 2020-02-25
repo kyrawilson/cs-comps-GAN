@@ -190,7 +190,7 @@ def train(G, D, epoch, loader, txt_loader, G_optim, D_optim, val=False):
 
         text_mismatch = txt_batch[2].to(kwargs['device'])
         conditional_logits_mismatch = D(img, text_mismatch)
-        conditional_loss_mismatch = (1 - conditional_logits_real).sum(0)
+        conditional_loss_mismatch = (1 - conditional_logits_mismatch).sum(0)
 
         fake = G(img, text_mismatch)
         unconditional_logits_fake = D(fake)
@@ -228,6 +228,31 @@ def train(G, D, epoch, loader, txt_loader, G_optim, D_optim, val=False):
                 with open(drivePath + 'text_' + str(epoch) + "-"+ theString + '.txt', 'w') as txt_file:
                     txt_file.write(txt_new)
             #print("-----------------------")
+        elif batch_idx == 0:
+            image_real = img[0]
+            image_fake = fake[0]
+            txt_new = txt_batch[0]
+            image_real = image_real.detach().cpu().numpy()
+            image_fake = image_fake.detach().cpu().numpy()
+            image_real = np.transpose(image_real, (1,2,0))
+            image_fake = np.transpose(image_fake, (1,2,0))
+            # print("This is the image type", image.dtype)
+            theString = str(number)
+            drivePath = 'drive/My Drive/taganData/'
+            plt.imshow(image_real)
+            plt.title("Real " + theString)
+            plt.savefig(drivePath + "real_" + str(epoch) + "-"+ theString + ".png")
+            plt.imshow(image_fake)
+            plt.title("Fake " + theString)
+            plt.savefig(drivePath +"fake_" + str(epoch) + "-" + theString + ".png")
+            """
+            Might get error saying:
+            Clipping input data to the valid range
+            for imshow with RGB data ([0..1] for floats or [0..255] for integers).
+            """
+            #plt.imshow((image).astype('uint8'))
+            with open(drivePath + 'text_' + str(epoch) + "-"+ theString + '.txt', 'w') as txt_file:
+                txt_file.write(txt_new)
 
         # print('ur:', unconditional_loss_real)
         # print('uf:', unconditional_loss_fake)
