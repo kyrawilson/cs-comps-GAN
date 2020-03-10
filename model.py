@@ -212,10 +212,8 @@ class Discriminator(nn.Module):
         # BUT torch doesn't let you have 0 stride! the authors are full of it :P
         # Also, in the supplementary materials, they describe the sigmoid as a softmax, but that doesn't seem to make sense
 
-        self.unconditional = nn.Sequential(
-            nn.Conv2d(512, 1, 4, 1, padding=0, bias=False),
-            nn.Sigmoid()
-        )
+        self.unconditional = nn.Conv2d(512, 1, 4, 1, padding=0, bias=False)
+            
 
         self.conditional = self.Conditional()
 

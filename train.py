@@ -22,10 +22,13 @@ import torchvision.transforms as transforms
 from tqdm import tqdm
 import uuid
 import torch.utils.data as data
+import torch.nn.functional as F
 
 from data import ImgCaptionData
 from model import Generator
 from model import Discriminator
+
+
 
 # from models import Generator
 
@@ -182,19 +185,24 @@ def train(G, D, epoch, loader, txt_loader, G_optim, D_optim, val=False):
 
         img = batch[0].to(kwargs['device'])
         unconditional_logits_real = D(img)
-        unconditional_loss_real = unconditional_logits_real.sum(0)
+        unconditional_loss_real = F.binary_cross_entropy_with_logits(unconditional_logits_real,\
+                                     torch.ones_like(unconditional_logits_real))
+        
 
         text = batch[2].to(kwargs['device'])
         conditional_logits_real = D(img, text)
-        conditional_loss_real = conditional_logits_real.sum(0)
+        conditional_loss_real = F.binary_cross_entropy(conditional_logits_real,\
+                                     torch.ones_like(conditional_logits_real))
 
         text_mismatch = txt_batch[2].to(kwargs['device'])
         conditional_logits_mismatch = D(img, text_mismatch)
-        conditional_loss_mismatch = (1 - conditional_logits_mismatch).sum(0)
+        conditional_loss_mismatch = F.binary_cross_entropy(conditional_logits_mismatch,\
+                                     torch.zeros_like(conditional_logits_mismatch))
 
         fake = G(img, text_mismatch)
         unconditional_logits_fake = D(fake)
-        unconditional_loss_fake = (1 - unconditional_logits_fake).sum(0)
+        unconditional_loss_fake = F.binary_cross_entropy_with_logits(unconditional_logits_fake,\
+                                     torch.zeros_like(unconditional_logits_fake))
 
 
         #Counter for naming the images
@@ -271,9 +279,11 @@ def train(G, D, epoch, loader, txt_loader, G_optim, D_optim, val=False):
             fake = G(img, text_mismatch)
             unconditional_logits_fake = D(fake)
         ### Get generator's loss
-        unconditional_loss_fake = unconditional_logits_fake.sum(0)
+        unconditional_loss_fake = F.binary_cross_entropy_with_logits(unconditional_logits_fake,\
+                                     torch.ones_like(unconditional_logits_fake))
         conditional_logits_fake = D(fake, text_mismatch)
-        conditional_loss_fake = conditional_logits_fake.sum(0)
+        conditional_loss_fake = F.binary_cross_entropy(conditional_logits_fake,\
+                                     torch.ones_like(conditional_logits_fake))
 
         # Measures dissimilarity between decoded image and input
         l2_fn = nn.MSELoss()
