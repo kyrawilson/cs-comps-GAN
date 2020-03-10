@@ -239,7 +239,7 @@ def train(G, D, epoch, loader, txt_loader, G_optim, D_optim, val=False):
         elif batch_idx == 0:
             image_real = img[0]
             image_fake = fake[0]
-            txt_new = txt_batch[0]
+            txt_new = txt_batch[1][0]
             image_real = image_real.detach().cpu().numpy()
             image_fake = image_fake.detach().cpu().numpy()
             image_real = np.transpose(image_real, (1,2,0))
