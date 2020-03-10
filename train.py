@@ -344,8 +344,8 @@ if __name__ == "__main__":
     useModel = False # make true to load a model
     #make improvements later
     if useModel == True:
-        drivePath = 'drive/My Drive/taganData/checkpoints'
-        newPath = drivePath + 'model_0.pt'
+        drivePath = 'drive/My Drive/taganData/checkpoints/'
+        newPath = drivePath + 'model_20.pt'
         checkpoint = torch.load(newPath)
         seed = set_seeds(args.seed)
         model_id, model_dir = make_model_dir(args.out_dir)
