@@ -318,19 +318,16 @@ def train(G, D, epoch, loader, txt_loader, G_optim, D_optim, val=False):
     pbar.close()
 
     #Saving the model at various epochs.
-    if (epoch % 10 == 0):
-        print("I am here saving the model")
-        drivePath = 'drive/My Drive/taganData/checkpoints/'
-
-        checkpoint = {
-            'epoch': epoch,
-            'genTrain': G.state_dict(),
-            'discrimTrain': D.state_dict(),
-            'genOptim': G_optim.state_dict(),
-            'disOptim': D_optim.state_dict()
-            }
-        path = drivePath + 'model_' + str(epoch) +'.pt'
-        torch.save(checkpoint, path)
+    drivePath = 'drive/My Drive/taganData/checkpoints/'
+    checkpoint = {
+        'epoch': epoch,
+        'genTrain': G.state_dict(),
+        'discrimTrain': D.state_dict(),
+        'genOptim': G_optim.state_dict(),
+        'disOptim': D_optim.state_dict()
+        }
+    path = drivePath + 'model_' + str(epoch - epoch%10) +'.pt'
+    torch.save(checkpoint, path)
 
         
     return avg_loss_G, avg_loss_D
@@ -372,7 +369,7 @@ if __name__ == "__main__":
         D = Discriminator(**kwargs)
         G.load_state_dict(checkpoint['genTrain'])
         D.load_state_dict(checkpoint['discrimTrain'])
-        epoch2 = checkpoint['epoch']
+        checkpoint_epoch = checkpoint['epoch']
         optim_G = optim.Adam(G.parameters(),
                                 lr=0.002,
                                 betas=[args.momentum, args.square_momentum])
@@ -384,9 +381,9 @@ if __name__ == "__main__":
 
         # TODO maybe only get parameters in G that require gradients?
         # optim_G = optim.Adam(G.parameters(), lr=args.lr, weight_decay=1e-4)
-        for epoch in range(epoch2, args.epochs):
+        for epoch in range(checkpoint_epoch, args.epochs):
             # train generator
-            if epoch == epoch2:
+            if epoch == checkpoint_epoch:
                 avg_train_loss = train(G, D, epoch, train_loader, txt_loader, optim_G, optim_D)
                 losses[epoch][0] = avg_train_loss[0]
                 losses[epoch][1] = avg_train_loss[1]
