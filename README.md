@@ -2,10 +2,10 @@
 
 ## How to run the code
 
-1. Download TAGAN.ipynb
+1. Download TAGAN.ipynb and copy of this repository as a zip file
 2. Add the images and captions to Google Drive: https://bit.ly/2ISIN8o 
 3. Add caption embeddings to Google Drive: https://bit.ly/2Wfl6iF
-4. Run TAGAN.ipynb on Google Colab using GPU with High Ram
+4. Upload TAGAN.ipynb on Google Colab using GPU with High Ram and run the code blocks (some will which require copying the files from Google Drive and uploading the repository zip file)
 
 ## Related Resources
 
